@@ -1,0 +1,52 @@
+description: |-
+  Брутит домены первого уровня и сохраняет найденные в файл.
+author: vinzekatze
+tags:
+  - recon-ng
+  - domains
+  - bruteforce
+install: |-
+  Необходима тулза recon-ng
+  Чтобы установить необходимый модуль запусти recon-ng и исполни в его консоле следующее:
+  
+  marketplace install recon/domains-domains/brute_suffix
+  modules load reporting/list
+arguments:
+  domains:
+    default:
+    replacer: __DOMAINS__
+    description: >-
+      домены, разделенные пробелами. Пример: 'example.ru othersite.ru'
+  out-domains:
+    default:
+    replacer: __PATH__
+    description: >-
+      путь до выходного файла
+shell: /bin/bash
+script: |-
+  touch "__PATH__" || exit
+  outfile="$(realpath '__PATH__')" || exit
+  dirpath="$(dirname $outfile)" || exit
+  reconcmdfile="$dirpath/recon_ng_cmd_brute.txt"
+
+  echo 'workspaces remove BASHMATOR_ZONE_BRUTE_SPACE' > "$reconcmdfile"
+  echo 'workspaces create BASHMATOR_ZONE_BRUTE_SPACE' >> "$reconcmdfile"
+  for domain in __DOMAINS__
+  do
+    echo 'db insert domains' >> "$reconcmdfile"
+    echo $domain >> "$reconcmdfile"
+    echo 'main' >> "$reconcmdfile"
+  done
+  echo 'modules load recon/domains-domains/brute_suffix' >> "$reconcmdfile"
+  echo 'run' >> "$reconcmdfile"
+  echo 'modules load reporting/list' >> "$reconcmdfile"
+  echo 'options set TABLE domains' >> "$reconcmdfile"
+  echo 'options set COLUMN domain' >> "$reconcmdfile"
+  echo "options set FILENAME $outfile" >> "$reconcmdfile"
+  echo 'run' >> "$reconcmdfile"
+  echo 'back' >> "$reconcmdfile"
+  echo 'workspaces remove BASHMATOR_ZONE_BRUTE_SPACE' >> "$reconcmdfile"
+  echo 'exit' >> "$reconcmdfile"
+  recon-ng -r "$reconcmdfile"
+  rm "$reconcmdfile"
+

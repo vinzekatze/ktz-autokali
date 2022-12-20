@@ -1,0 +1,65 @@
+description: |-
+  Загружает сайты в текущую директорию и ищет чувствительную информацию. Сохраняет результаты в файлы OUT_* в текущей директории.
+author: kraud
+tags:
+  - httrack
+  - exiftool
+  - recon
+  - metadata
+  - http
+  - https
+  - web
+  - site
+  - download
+  - 80
+  - 443
+install: |-
+  sudo apt install httrack
+  sudo apt install libimage-exiftool-perl
+arguments:
+  targs:
+    default:
+    replacer: __TARGS__
+    description: >-
+     URL сайтов для загрузки, разделенные пробелами. Пример: 'https://example.com  http://other.com:9090'
+  t:
+    default: 10
+    replacer: __TREADS__
+    description: Количество потоков для httrack. По умолчанию 10.
+shell: /bin/bash
+script: 
+item_1:
+  description: Загрузка сайтов с медиа-файлами
+  script: |-
+    for targ in __TARGS__; do
+      fld=${targ//:\/\//_}
+      httrack $targ -O ./${fld//[^[:alnum:]]/_}/ --sockets=__TREADS__ --robots=0 --updatehack --user-agent "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:90.0) Gecko/20100101 Firefox/90.0"
+    done
+item_2:
+  description: Загрузка сайтов без медиа-файлов
+  script: |-
+    for targ in __TARGS__; do
+      fld=${targ//:\/\//_}
+      httrack $targ -O ./${fld//[^[:alnum:]]/_}/ -*.gif -*.jpg -*.jpeg -*.png -*.tif -*.bmp -*.mov -*.mpg -*.mpeg -*.avi -*.asf -*.mp3 -*.mp2 -*.wav -*.vob -*.qt -*.vid -*.ac3 -*.wma -*.wmv -*.css -*.sass -*.woff --sockets=__TREADS__ --robots=0 --updatehack --user-agent "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:90.0) Gecko/20100101 Firefox/90.0"
+    done
+item_3:
+  description: Поиск файлов и извлечение метаданных
+  script: |-
+    find . \( -name "*.doc" -o -name "*.docx" -o -name "*.xls" -o -name "*.xlsx" -o -name "*.rtf" -o -name "*.pdf" -o -name "*.ppt" -o -name "*.pptx" -o -name "*.odt" -o -name "*.ods" -o -name "*.odp" -o -name "*.odg" \) -print | tee list_of_office_documents.txt
+    find . \( -name "*.jpg" -o -name "*.jpeg" -o -name "*.png" -o -name "*.svg" -o -name "*.gif" -o -name "*.mp4" -o -name "*.flv" -o -name "*.mpg" \) -print | tee list_of_media_files.txt
+    find . \( -name "*.rar" -o -name "*.zip" -o -name "*.gz" \) -print | tee list_of_archives.txt
+    while IFS= read line; do exiftool "$line" >> metadata_office_files.txt; done < list_of_office_documents.txt
+    while IFS= read line; do exiftool "$line" >> metadata_media_files.txt; done < list_of_media_files.txt
+    while IFS= read line; do exiftool "$line" >> metadata_archives.txt; done < list_of_archives.txt
+    cat metadata_* | grep "Last Modified By\|Creator\|Author" | grep -vE "Microsoft|Canon|PScript|Google|Computer|HP Scan|КонсультантПлюс|Xerox|Foxit|Adobe|PDF|Пользователь|Hewlett-Packard|Creator Tool|User|Work|user|work|CorelDRAW|Администратор|Profile Creator|[0-9]{1,2}\.[0-9]{1,2}| $" | awk -F': ' '{print $2}' | grep -E "^.{3,70}$" | sort -u | tee OUT_users_from_metadata.txt
+item_4:
+  description: Поиск email-ов
+  script: >-
+    grep -a -r -E -o "\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,6}\b" ./ | cut -d":" -f2 | grep -v -i -e ".png\|.jpg\|.gif" | sort | uniq | tee OUT_emails.txt
+item_5:
+  description: Поиск доменых имен
+  script: |-
+    grep -a -r -E -o "\b[A-Za-z0-9_-]+\.[A-Za-z]{2,6}\b" ./ | cut -d":" -f2 | grep -E "\.ru$|\.com$|\.net$|\.org$|\.description$|\.pro$" | sort -u | tee domains_temp.txt
+    grep -a -r -E -o "\b[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z]{2,6}\b" ./ | cut -d":" -f2 | grep -E "\.ru$|\.com$|\.net$|\.org$|\.description$|\.pro$" | sort -u | tee -a domains_temp.txt
+    sort -u domains_temp.txt > OUT_domains.txt
+    rm domains_temp.txt

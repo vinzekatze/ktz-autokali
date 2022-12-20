@@ -1,0 +1,93 @@
+description: |-
+  Ищет субдомены и ip-адреса, связанные с целевыми доменами.
+author: vinzekatze
+tags:
+  - dns
+  - recon
+  - subdomains
+  - recon-ng
+  - amass
+  - subfinder
+install: |-
+  # Установка тулзов
+  sudo apt install recon-ng
+  sudo apt install amass
+  sudo apt install subfinder
+
+  # Чтобы установить необходимые модули запусти recon-ng и исполни в его консоле следующее:
+  marketplace install recon/domains-hosts/brute_hosts
+  marketplace install recon/domains-hosts/certificate_transparency
+  marketplace install recon/domains-hosts/hackertarget
+  marketplace install recon/hosts-hosts/resolve
+  marketplace install recon/hosts-hosts/reverse_resolve
+  marketplace install recon/domains-hosts/mx_spf_ip
+  marketplace install reporting/list
+arguments:
+  domains:
+    default:
+    replacer: __DOMAINS__
+    description: >-
+      домены, разделенные пробелами. Пример: 'example.ru othersite.ru'
+  out:
+    default:
+    replacer: __PATH-DOMAINS__
+    description: >-
+      путь и базовое имя выходных файлов. Пример: ./subdoms
+shell: /bin/bash
+script:
+item_1:
+  description: Запуск recon-ng
+  script: |-
+    touch "__PATH-DOMAINS__-ng.txt" || exit
+    touch "__PATH-DOMAINS__ng-ips.txt" || exit
+    outfile_doms="$(realpath '__PATH-DOMAINS__-ng.txt')" || exit
+    outfile_ips="$(realpath '__PATH-DOMAINS__ng-ips.txt')" || exit
+    dirpath_doms="$(dirname $outfile_doms)" || exit
+    reconcmdfile="$dirpath_doms/recon_ng_cmd_domains.txt"
+    
+    echo 'workspaces remove BASHMATOR_SUBDOMAINS_SEARCH' > "$reconcmdfile"
+    echo 'workspaces create BASHMATOR_SUBDOMAINS_SEARCH' >> "$reconcmdfile"
+    for domain in __DOMAINS__
+    do
+      echo 'db insert domains' >> "$reconcmdfile"
+      echo $domain >> "$reconcmdfile"
+      echo 'main' >> "$reconcmdfile"
+    done
+    echo 'modules load recon/domains-hosts/mx_spf_ip' >> "$reconcmdfile"
+    echo 'run' >> "$reconcmdfile"
+    echo 'modules load recon/domains-hosts/brute_hosts' >> "$reconcmdfile"
+    echo 'run' >> "$reconcmdfile"
+    echo 'modules load recon/domains-hosts/certificate_transparency' >> "$reconcmdfile"
+    echo 'run' >> "$reconcmdfile"
+    echo 'modules load recon/domains-hosts/hackertarget' >> "$reconcmdfile"
+    echo 'run' >> "$reconcmdfile"
+    echo 'modules load recon/hosts-hosts/resolve' >> "$reconcmdfile"
+    echo 'run' >> "$reconcmdfile"
+    echo 'modules load recon/hosts-hosts/reverse_resolve' >> "$reconcmdfile"
+    echo 'run' >> "$reconcmdfile"
+    echo 'modules load recon/domains-hosts/certificate_transparency' >> "$reconcmdfile"
+    echo 'run' >> "$reconcmdfile"
+    echo 'modules load reporting/list' >> "$reconcmdfile"
+    echo 'options set TABLE hosts' >> "$reconcmdfile"
+    echo 'options set COLUMN host' >> "$reconcmdfile"
+    echo "options set FILENAME $outfile_doms" >> "$reconcmdfile"
+    echo 'run' >> "$reconcmdfile"
+    echo 'options set TABLE hosts' >> "$reconcmdfile"
+    echo 'options set COLUMN ip_address' >> "$reconcmdfile"
+    echo "options set FILENAME $outfile_ips" >> "$reconcmdfile"
+    echo 'run' >> "$reconcmdfile"
+    echo 'back' >> "$reconcmdfile"
+    echo 'workspaces remove BASHMATOR_SUBDOMAINS_SEARCH' >> "$reconcmdfile"
+    echo 'exit' >> "$reconcmdfile"
+    recon-ng -r "$reconcmdfile"
+    rm "$reconcmdfile"
+item_2:
+  description: Запуск Amass и Subfinder
+  script: |-
+    touch "__PATH-DOMAINS__-as.txt" || exit
+    for targ in __DOMAINS__; do
+      echo '+++SUBFINDER---'
+      subfinder -silent -d $targ 2>/dev/null | tee -a "__PATH-DOMAINS__-as.txt"
+      echo '+++AMASS-------'
+      amass enum -nocolor -d $targ 2>/dev/null | tee -a "__PATH-DOMAINS__-as.txt"
+    done
