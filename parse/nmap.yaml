@@ -44,7 +44,7 @@ item_3:
     for host in $hosts; do
       ports=$(xmllint __FILES__ --xpath "/nmaprun/host[address/@addr='$host']/ports/port[(state/@state='open') and contains(service/@name,'__SERVICENAME__')]/@portid" 2>/dev/null | cut -d "=" -f2 | tr -d '"')
       for port in $ports; do
-        echo -n $host:$port"__DELIM__"
+        echo -ne $host:$port"__DELIM__"
       done
     done
 item_4:
