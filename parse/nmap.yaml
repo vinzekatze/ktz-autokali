@@ -1,5 +1,5 @@
 description: |-
-  asdf
+  Парсит xml-вывод nmap и выдает необходимую инфу
 author: vinzekatze
 tags:
   - nmap
@@ -16,7 +16,7 @@ arguments:
   files:
     default:
     replacer: __FILES__
-    description: файл/файлы для чтения
+    description: xml файл/файлы для чтения
   d:
     default: " "
     replacer: __DELIM__
