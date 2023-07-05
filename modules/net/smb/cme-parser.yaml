@@ -1,0 +1,122 @@
+description: |-
+  Набор однострочников для поиска информации в выводе crackmapexec
+author: vinzekatze
+tags:
+  - 445
+  - smb
+  - cme
+  - crackmapexec
+  - parse
+
+install:
+  sudo apt install ansi2txt
+
+arguments:
+  f:
+    default:
+      -
+    multiple: true
+    replacer: __FILE__
+    description: файлы с логом вывода crackmapexec, из которых будет извлекаться необходимая информация. Если не указан, читает из pipe
+  
+  gi:
+    default:
+      -
+    multiple: true
+    replacer: __GREP-IN__
+    description: строки для включающей предфильтрации (grep -i -e)
+
+  ge:
+    default:
+      -
+    multiple: true
+    replacer: __GREP-EX__
+    description: строки для исключающей предфильтрации (grep -iv -e)
+  
+  v:
+    default:
+      - x
+      - 
+    replacer: __SHOR__
+    description: показать полную информацию
+
+shell: bash
+
+mode:
+  format:
+    f: '{!r}'
+    gi: 'grep -i --color=never -e {!r} |'
+    ge: 'grep -iv --color=never -e {!r} |'
+
+item_1:
+  mode:
+    format:
+      v: >-
+        awk -v FS='\\[*\\] ' '{{print $2}}' | awk -v FS='(' '{{print $1}}' |
+  description: получить версии ОС хостов
+  script: >-
+    cat __FILE__ | ansi2txt | __GREP-IN__ __GREP-EX__ grep --color=never -e 'SMB*.*\[\*\]' | __SHOR__ sort -u
+
+item_2:
+  mode:
+    format:
+      v: >-
+        awk '{{print $4}}' |
+  description: получить имена smb хостов
+  script: >-
+    cat __FILE__ | ansi2txt | __GREP-IN__ __GREP-EX__ grep --color=never -e 'SMB*.*\[\*\]' | __SHOR__ sort -u
+
+item_3:
+  mode:
+    format:
+      v: >-
+        awk '{{print $2}}' |
+  description: получить ip адреса smb хостов
+  script: >-
+    cat __FILE__ | ansi2txt | __GREP-IN__ __GREP-EX__ grep --color=never -e 'SMB*.*\[\*\]' | __SHOR__ sort -u
+
+
+item_4:
+  mode:
+    format:
+      v: >-
+        awk '{{print $2}}' |
+  description: получить ip адреса smb хостов, уязвимых к relay атакам
+  script: >-
+    cat __FILE__ | ansi2txt | __GREP-IN__ __GREP-EX__ grep --color=never -e 'SMB*.*\[\*\].*(signing:False)' | grep --color=never -i -e 'SMB*.*\[\*\].*windows' | __SHOR__ sort -u
+
+item_5:
+  mode:
+    format:
+      v: >-
+        awk '{{print $6}}' |
+  description: получить валидные креды
+  script: >-
+    cat __FILE__ | ansi2txt | __GREP-IN__ __GREP-EX__ grep --color=never -e 'SMB*.*\[+\].*\\.*:' | __SHOR__ sort -u
+
+item_6:
+  mode:
+    format:
+      v: >-
+        sed 's/\\/\//' | awk '{{print $6 "@" $2}}' |
+  description: получить валидные креды в формате impacket
+  script: >-
+    cat __FILE__ | ansi2txt | __GREP-IN__ __GREP-EX__ grep --color=never -e 'SMB*.*\[+\].*\\.*:' | __SHOR__ sort -u
+
+item_7:
+  mode:
+    format:
+      v: >-
+        awk -v FS='READ' '{{print $1}}' | awk '{{printf "\\\\" $2 "\\"; for(i=5;i<=NF;i++) if (i<NF) printf $i" "; else printf $i; print ""}}' |
+  description: получить доступные для чтения шары
+  script:
+    cat __FILE__ | ansi2txt | __GREP-IN__ __GREP-EX__ grep --color=never -e 'SMB*.*READ' | __SHOR__ sort -u
+
+item_8:
+  mode:
+    format:
+      v: >-
+        awk -v FS='READ' '{{print $1}}' | awk '{{printf "\\\\" $2 "\\"; for(i=5;i<=NF;i++) if (i<NF) printf $i" "; else printf $i; print ""}}' |
+  description: получить доступные для записи шары
+  script:
+    cat __FILE__ | ansi2txt | __GREP-IN__ __GREP-EX__ grep --color=never -e 'SMB*.*WRITE' | __SHOR__ sort -u

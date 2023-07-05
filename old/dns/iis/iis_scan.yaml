@@ -2,18 +2,13 @@ description: >-
   Тесты для Micrsoft IIS
 author: vinzekatze
 tags:
-  - 443
-  - 80
-  - metasploit
-  - msfconsole
-  - http
-  - https
-  - web
-  - site
   - iis
+  - web
+  - https
+  - metasploit
   - microsoft
 install: |-
-  Нужен metasploit
+  sudo apt install dirsearch
 arguments:
   targets:
     default:
@@ -25,6 +20,13 @@ arguments:
     replacer: __THREADS__
     description: Количество потоков
 shell: bash
+
+file_1:
+  description: словарь для брута директорий IIS сервера
+  path: wordlists/web/iis/iis_dirs.txt
+  replacer: __IIS_DIRS__
+
+
 
 item_1:
   description: Ищет страницы с аутентификацией и пытается её обойти

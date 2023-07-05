@@ -1,18 +1,19 @@
 description: |-
-  Ищет субдомены и ip-адреса, связанные с целевыми доменами.
+  Поиск субдоменов
 author: vinzekatze
 tags:
-  - dns
-  - recon
   - subdomains
+  - bruteforce
   - recon-ng
   - amass
   - subfinder
+  - assetfinder
 install: |-
   # Установка тулзов
   sudo apt install recon-ng
   sudo apt install amass
   sudo apt install subfinder
+  sudo apt install assetfinder
 
   # Чтобы установить необходимые модули запусти recon-ng и исполни в его консоле следующее:
   marketplace install recon/domains-hosts/brute_hosts
@@ -22,36 +23,81 @@ install: |-
   marketplace install recon/hosts-hosts/reverse_resolve
   marketplace install recon/domains-hosts/mx_spf_ip
   marketplace install reporting/list
+
 arguments:
-  domains:
+  domain:
     default:
+    multiple: true
     replacer: __DOMAINS__
-    description: >-
-      домены, разделенные пробелами. Пример: 'example.ru othersite.ru'
-  out:
+    description: целевые домены
+  o:
+    default: ./domains.txt
+    replacer: __PATH__
+    description: путь до выходного файла
+  brute:
     default:
-    replacer: __PATH-DOMAINS__
-    description: >-
-      путь и базовое имя выходных файлов. Пример: ./subdoms
+      -
+      - --brute
+    replacer: __BRUTE__
+    description: использовать --brute с amass (долго!)
+
+mode:
+  format:
+    o: >- 
+      {!r}
+    domain: >-
+      {!r}
+
 shell: bash
+
 item_1:
-  description: Запуск recon-ng
+  mode:
+    loop: domain
+    format:
+      o: >-
+        {}
+  description: Поиск с помощью assetfinder
+  script: >-
+    assetfinder __DOMAINS__ | tee '__PATH__.temp';
+    touch '__PATH__';
+    grep -vsxf '__PATH__' '__PATH__.temp' >> '__PATH__';
+    rm '__PATH__.temp'
+
+item_2:
+  mode:
+    loop: domain
+    format:
+      o: >-
+        {}
+  description: Поиск с помощью subfinder
+  script: >-
+    subfinder -d __DOMAINS__ -o '__PATH__.temp';
+    touch '__PATH__';
+    grep -vsxf '__PATH__' '__PATH__.temp' >> '__PATH__';
+    rm '__PATH__.temp'
+
+item_3:
+  mode:
+    format:
+      domain: |-
+        echo 'db insert domains' >> "$reconcmdfile"
+        echo {!r} >> "$reconcmdfile"
+        echo 'main' >> "$reconcmdfile"
+    join:
+      domain: "\n"
+  description: Поиск с помощью recon-ng
   script: |-
-    touch "__PATH-DOMAINS__-ng.txt" || exit
-    touch "__PATH-DOMAINS__ng-ips.txt" || exit
-    outfile_doms="$(realpath '__PATH-DOMAINS__-ng.txt')" || exit
-    outfile_ips="$(realpath '__PATH-DOMAINS__ng-ips.txt')" || exit
-    dirpath_doms="$(dirname $outfile_doms)" || exit
-    reconcmdfile="$dirpath_doms/recon_ng_cmd_domains.txt"
+    outfile="$(realpath __PATH__)" || exit
+    touch "$outfile" || exit 
+    dirpath="$(dirname $outfile)" || exit
+    reconcmdfile="$dirpath/recon_ng_cmd_brute.txt"
+    reconoutfile="$dirpath/recon_ng_out_brute.txt"
     
     echo 'workspaces remove BASHMATOR_SUBDOMAINS_SEARCH' > "$reconcmdfile"
     echo 'workspaces create BASHMATOR_SUBDOMAINS_SEARCH' >> "$reconcmdfile"
-    for domain in __DOMAINS__
-    do
-      echo 'db insert domains' >> "$reconcmdfile"
-      echo $domain >> "$reconcmdfile"
-      echo 'main' >> "$reconcmdfile"
-    done
+    
+    __DOMAINS__
+    
     echo 'modules load recon/domains-hosts/mx_spf_ip' >> "$reconcmdfile"
     echo 'run' >> "$reconcmdfile"
     echo 'modules load recon/domains-hosts/brute_hosts' >> "$reconcmdfile"
@@ -69,24 +115,28 @@ item_1:
     echo 'modules load reporting/list' >> "$reconcmdfile"
     echo 'options set TABLE hosts' >> "$reconcmdfile"
     echo 'options set COLUMN host' >> "$reconcmdfile"
-    echo "options set FILENAME $outfile_doms" >> "$reconcmdfile"
-    echo 'run' >> "$reconcmdfile"
-    echo 'options set TABLE hosts' >> "$reconcmdfile"
-    echo 'options set COLUMN ip_address' >> "$reconcmdfile"
-    echo "options set FILENAME $outfile_ips" >> "$reconcmdfile"
+    echo "options set FILENAME $reconoutfile" >> "$reconcmdfile"
     echo 'run' >> "$reconcmdfile"
     echo 'back' >> "$reconcmdfile"
     echo 'workspaces remove BASHMATOR_SUBDOMAINS_SEARCH' >> "$reconcmdfile"
     echo 'exit' >> "$reconcmdfile"
+    
     recon-ng -r "$reconcmdfile"
+
+    grep -vsxf "$outfile" "$reconoutfile" >> "$outfile"
+    rm "$reconoutfile"
     rm "$reconcmdfile"
-item_2:
-  description: Запуск Amass и Subfinder
-  script: |-
-    touch "__PATH-DOMAINS__-as.txt" || exit
-    for targ in __DOMAINS__; do
-      echo '+++SUBFINDER---'
-      subfinder -silent -d $targ 2>/dev/null | tee -a "__PATH-DOMAINS__-as.txt"
-      echo '+++AMASS-------'
-      amass enum -nocolor -d $targ 2>/dev/null | tee -a "__PATH-DOMAINS__-as.txt"
-    done
+
+item_4:
+  mode:
+    format:
+      o: >-
+        {}
+      domain: >-
+        -d {!r}
+  description: Поиск с помощью amass
+  script: >-
+    amass enum -dns-qps 500 -active __BRUTE__ -o '__PATH__.temp' __DOMAINS__;
+    touch '__PATH__'; 
+    grep -vsxf '__PATH__' '__PATH__.temp' >> '__PATH__';
+    rm '__PATH__.temp'

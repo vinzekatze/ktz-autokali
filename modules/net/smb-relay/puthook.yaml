@@ -1,0 +1,44 @@
+description:
+  НЕДОДЕЛАНО
+
+install:
+  sudo apt install smbclient
+
+arguments:
+  
+  pth:
+    default:
+      - 
+      - '--pw-nt-hash '
+    replacer: __PASSWHASH__
+    description: интерпритировать пароль как NT хеш
+  
+  target:
+    multiple: true
+    replacer: __TARGS-FILE__
+    description: цели для сканирования
+
+  domain:
+    replacer: __DOMAIN__
+    description: домен 
+
+  user:
+    replacer: __USER__
+    description: пользователь
+  
+  password:
+    replacer: __PASSW__
+    description: пароль
+
+mode:
+  format:
+    password: '{!r}'
+    
+
+shell: bash
+script: |-
+  while IFS= read -r line
+  do
+    echo "+++ $line"
+    smbclient -U __DOMAIN__/__USER__ __PASSWHASH__--password __PASSW__ "$line" -c 'pwd'
+  done < __TARGS-FILE__

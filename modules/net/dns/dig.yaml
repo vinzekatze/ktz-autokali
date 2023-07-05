@@ -1,0 +1,109 @@
+description: |-
+  Небольшая автоматизация для dig. 
+
+  Принимает следующие типы запросов (параметр -q):
+    - a
+    - aaaa
+    - any
+    - axfr  *параметр -v не оказывает влияния
+    - cname
+    - loc
+    - mx
+    - ns
+    - ptr   *может работать с диапазонами (nmap)
+    - soa
+    - srv   *перечисляет SRV записи по словарю
+    - txt
+
+author: vinzekatze
+tags:
+  - dig
+  - recon
+  - domains
+  - srv
+install: |-
+  dig
+  nmap
+
+shell: bash
+
+arguments:
+  q:
+    metavar: QUERY
+    multiple: true
+    default:
+      - a
+      - aaaa
+      - any
+      - axfr
+      - cname
+      - loc
+      - mx
+      - ns
+      - ptr
+      - soa
+      - srv
+      - txt
+    description: типы запросов
+  d:
+    metavar: DOMAIN
+    multiple: true
+    description: целевые домены
+    regex: '[\w\.\_\-\:\/\,]+' 
+  n:
+    metavar: SERVER
+    default:
+      -
+    multiple: true
+    description: NS сервера для опроса
+    regex: '[\w\.\_\-\:\/\,]+'
+  v:
+    default:
+      - >-
+        +short | grep --color=never -oP '([a-z0-9]{0,4}\:([a-z0-9]{0,4}\:)*\:[a-z0-9]{0,4})|(([a-z0-9\-_]+\.)+[a-z0-9\-]+)'
+      -
+    description: показывать полные версии ответов
+  tcp:
+    default:
+      -
+      - +tcp
+    description: использовать TCP запросы (должно работать с porxychains)
+  big-srv:
+    default:
+      - '#file_1#'
+      - '#file_2#'
+    description: использовать большой словарь для перечисления SRV записей
+mode:
+  loop: n
+  replace:
+    q:
+      a: 'dig #n# #tcp# +noall +answer +multiline a #d# #v#;'
+      aaaa: 'dig #n# #tcp# +noall +answer +multiline aaaa #d# #v#;'
+      any: 'dig #n# #tcp# +noall +answer +multiline any #d# #v#;'
+      axfr: 'dig #n# #tcp# +noall +answer +multiline axfr #d#;'
+      cname: 'dig #n# #tcp# +noall +answer +multiline cname #d# #v#;'
+      loc: 'dig #n# #tcp# +noall +answer +multiline loc #d# #v#;'
+      mx: 'dig #n# #tcp# +noall +answer +multiline mx #d# #v#;'
+      ns: 'dig #n# #tcp# +noall +answer +multiline ns #d# #v#;'
+      ptr: >-
+        dig #n# #tcp# +noall +answer +multiline $(nmap -n -sL #d# 2>/dev/null  | awk '/Nmap scan report/{print "-x "$NF}' | tr -d '()') #v#;
+      soa: 'dig #n# #tcp# +noall +answer +multiline soa #d# #v#;'
+      srv: >-
+        dig #n# #tcp# +noall +answer +multiline SRV $(for targ in #d#; do for srv in $(cat '#big-srv#'); do echo "${srv}.${targ}"; done; done) #v#;
+      txt: 'dig #n# #tcp# +noall +answer +multiline txt #d# #v#;'
+  format:
+    d: >-
+      {!r}
+    n: >-
+      @{!r}
+
+file_1:
+  description: Стандартный словарь SRV имен
+  path: wordlists/dns/dns-srv-names.txt
+
+file_2:
+  description: Большой словарь SRV имен
+  path: wordlists/dns/dns-srv-names-big.txt
+
+script: >-
+  #q#
