@@ -86,7 +86,7 @@ mode:
       mx: 'dig #n# #tcp# +noall +answer +multiline mx #d# #v#;'
       ns: 'dig #n# #tcp# +noall +answer +multiline ns #d# #v#;'
       ptr: >-
-        dig #n# #tcp# +noall +answer +multiline $(nmap -n -sL #d# 2>/dev/null  | awk '/Nmap scan report/{print "-x "$NF}' | tr -d '()') #v#;
+        { nmap -n -4 -sL #d# 2>/dev/null; nmap -n -6 -sL #d# 2>/dev/null } | awk '/Nmap scan report/{print "-x "$NF}' | tr -d '()' > ./_tmp_ips.txt; dig #n# #tcp# +noall +answer +multiline -f ./_tmp_ips.txt #v#; rm ./_tmp_ips.txt
       soa: 'dig #n# #tcp# +noall +answer +multiline soa #d# #v#;'
       srv: >-
         dig #n# #tcp# +noall +answer +multiline SRV $(for targ in #d#; do for srv in $(cat '#big-srv#'); do echo "${srv}.${targ}"; done; done) #v#;

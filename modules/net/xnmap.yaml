@@ -37,7 +37,7 @@ arguments:
     description: |-
       настройка вывода: 'A' - полный сокет, 'I' - ip адреса, 'P' - номера портов, 'N' - названия сервисов
   d:
-    metavar: DEL
+    metavar: DELIM
     default:
       -
     description: задать разделитель для вывода
