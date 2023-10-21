@@ -8,9 +8,6 @@ tags:
   - 500
   - 4500
   - search
-install:
-  sudo apt install nmap
-  sudo apt install libxml2-utils
 
 arguments:
   f:

@@ -1,0 +1,36 @@
+description: Скрипт установки всего, что требуется для библиотекиа
+shell: bash
+
+file_1:
+  path: install/recon-ng_cmd.txt
+  description: команды для установки модулей recon-ng
+
+script: |-
+  sudo apt update -y
+
+  # net
+  sudo apt install -y nmap metasploit-framework libxml2-utils colorized-logs xmlstarlet
+
+  # net/dns
+  sudo apt install -y recon-ng dnsutils amass subfinder assetfinder
+
+  # net/smb*
+  sudo apt install -y smbclient
+
+  # web
+  sudo apt install -y httrack libimage-exiftool-perl sslscan dirsearch
+
+  # osint
+  sudo apt install -y theharvester libimage-exiftool-perl
+
+  # внутретулзовые установки
+  recon-ng -r #file_1#
+  
+  # установки python библиотек
+  pip install --upgrade ipwhois
+  pip install --upgrade dnspython
+  
+  #!!!!!!!!!!!!!!!!!!!!
+  # docker
+  #docker -v || exit
+  #docker pull simplyemail

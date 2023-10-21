@@ -1,13 +1,17 @@
 description: >-
-  Определяет сетевые диапазоны, к которым относятся заданные IP-адреса
+  Определяет сетевые диапазоны, к которым относятся IP адреса.
 author: vinzekatze
 tags:
   - ip
   - whois
   - cidr
   - nets
-install: >-
+
+install: |-
   pip install --upgrade ipwhois
+  pip install --upgrade dnspython
+
+shell: bash
 
 arguments:
   i:
@@ -16,63 +20,44 @@ arguments:
     metavar: IP
     multiple: true
     description: IP адреса для запроса
-    regex: ([a-z0-9]{0,4}\:([a-z0-9]{0,4}\:)*\:[a-z0-9]{0,4})|(([0-9]{1,3}+\.)+[0-9]{1,3})
-  f:
+    regex: ([a-z0-9]{0,4}\:([a-z0-9]{0,4}\:)*\:[a-z0-9]{0,4})|(([0-9]{1,3}\.)+[0-9]{1,3})
+  d:
+    default:
+      -
+    metavar: DOMAIN
+    multiple: True
+    description: Доменные имена для запроса (разрезолвит сам)
+    regex: '[\w\.\_\-\:\/\,]+'
+
+  dfile:
+    default:
+      -
+    metavar: FILE
+    multiple: True
+    description: Читать домены из файлов
+  ifile:
+    default:
+      -
     metavar: FILE
     multiple: true
-    default:
-      -
-    description: читать IP-адреса из файлов
-    regex: ([a-z0-9]{0,4}\:([a-z0-9]{0,4}\:)*\:[a-z0-9]{0,4})|(([0-9]{1,3}+\.)+[0-9]{1,3})
-  q:
-    default:
-      - 'True'
-      - 'False'
-    description: выводить только уникальные CIDR
-  d:
-    metavar: DELIM
-    default:
-      -
-    description: задать разделитель для 3-его режима вывода
+    description: Читать IP из файлов
+
+
+file_1:
+  path: scripts/whois.py
+  description: 'Исполняемый скрипт'
+
 mode:
   format:
+    d: '{!r}'
     i: '{!r}'
-    f: '{!r}'
-    d: >-
-      , end={!r}
-  join:
-    i: ', '
-    f: ', '
-  readfile:
-    - f
+    dfile: '{!r}'
+    ifile: '{!r}'
+  pformat:
+    d: '--domains {} '
+    i: '--ips {} '
+    dfile: '--domains-files {} '
+    ifile: '--ips-files {}'
 
-shell: python3
-script: |-
-  import ipwhois
-  from tabulate import tabulate
-  cl_targs = [#i#]
-  file_targs = [#f#]
-  targs = cl_targs + file_targs
-  cidrs_uniq = []
-  for i in targs:
-      try:
-          obj = ipwhois.IPWhois(i)
-          result = obj.lookup_whois()
-          headers = [f'ASN{result.get("asn", "-")}', result.get("asn_cidr", "-"), result.get("asn_description", "-")]
-          nets = []
-          for j in result.get("nets", []):
-            nets.append([j.get("name", "-"), j.get("cidr", "-"), j.get("description", "-")])
-          if #q#:
-            print(f'+ IP: {i}');
-            print(tabulate(nets, headers, tablefmt="psql", maxcolwidths=[None, 43]));
-            print()
-          else:
-            if headers[1] not in cidrs_uniq:
-                cidrs_uniq.append(headers[1])
-                print(headers[1]#d#)
-            for k in nets:
-                if k[1] not in cidrs_uniq:
-                    cidrs_uniq.append(k[1])
-                    print(k[1]#d#)
-      except:
-          pass
+script: >-
+  python3 '#file_1#' #d##i##dfile##ifile#

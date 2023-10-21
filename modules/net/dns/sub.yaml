@@ -8,21 +8,6 @@ tags:
   - amass
   - subfinder
   - assetfinder
-install: |-
-  # Установка тулзов
-  sudo apt install recon-ng
-  sudo apt install amass
-  sudo apt install subfinder
-  sudo apt install assetfinder
-
-  # Чтобы установить необходимые модули запусти recon-ng и исполни в его консоле следующее:
-  marketplace install recon/domains-hosts/brute_hosts
-  marketplace install recon/domains-hosts/certificate_transparency
-  marketplace install recon/domains-hosts/hackertarget
-  marketplace install recon/hosts-hosts/resolve
-  marketplace install recon/hosts-hosts/reverse_resolve
-  marketplace install recon/domains-hosts/mx_spf_ip
-  marketplace install reporting/list
 
 arguments:
   domain:
@@ -136,7 +121,7 @@ item_4:
         -d {!r}
   description: Поиск с помощью amass
   script: >-
-    amass enum -dns-qps 500 -active __BRUTE__ -o '__PATH__.temp' __DOMAINS__;
+    amass enum -dns-qps 200 -active __BRUTE__ -o '__PATH__.temp' __DOMAINS__;
     touch '__PATH__'; 
     grep -vsxf '__PATH__' '__PATH__.temp' >> '__PATH__';
     rm '__PATH__.temp'

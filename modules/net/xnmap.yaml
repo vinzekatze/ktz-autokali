@@ -14,9 +14,6 @@ tags:
   - parser
   - search
   - services
-install: >-
-  sudo apt install xmlstarlet
-
 arguments:
   s:
     metavar: STR

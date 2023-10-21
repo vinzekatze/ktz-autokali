@@ -9,8 +9,6 @@ tags:
   - automation
   - harvester
   - simplyemail
-install: |-
-  docker pull simplyemail
 arguments:
   domain:
     default:

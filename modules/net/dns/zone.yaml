@@ -7,12 +7,6 @@ tags:
   - recon-ng
   - dns
   - domains
-install: |-
-  # Необходима тулза recon-ng
-  # Чтобы установить необходимый модуль запусти recon-ng и исполни в его консоле следующее:
-  
-  marketplace install recon/domains-domains/brute_suffix
-  marketplace install reporting/list
 
 arguments:
   domains:

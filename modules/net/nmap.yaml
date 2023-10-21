@@ -1,0 +1,84 @@
+description: |-
+  Определяет открытые TCP и UDP порты, затем определяет версии сервисов на них.
+
+  Рекомендую скармливать только живые хосты, иначе процесс может затянуться (сканирует с '-Pn').
+  Также не забудь указать --top-udp, а то пойдет по всему диапазону.
+author: vinzekatze
+install:
+  sudo apt install nmap xmlstarlet
+tags:
+  - port
+  - scan
+  - service
+  - version
+  - recon
+arguments:
+  f:
+    default:
+      - echo
+      - cat
+    description: скормить скрипту файлы со списками целей
+
+  target:
+    multiple: true
+    description: цели для сканирования nmap
+  o:
+    metavar: FILE
+    default: ./nmap-scan
+    description: базовае название выходного файла для флага '-oA'
+
+  sT:
+    default:
+      - -sS
+      - -sT
+    description: использовать TCP сканирование для nmap вместо SYN
+
+  T:
+    default:
+      - 3
+      - 2
+      - 1
+      - 0
+      - 4
+      - 5
+    description: интенсивность сканирования nmap
+  top-tcp:
+    metavar: NUM
+    regex: \d+
+    default: 
+      -
+    description: сканировать только топ <NUM> TCP-портов
+  top-udp:
+    metavar: NUM
+    regex: \d+
+    default:
+      -
+    description: сканировать только топ <NUM> UDP-портов
+  more:
+    default:
+      - >-
+        --if "state/@state='open'"
+      - >-
+        --if "state/@state='open' or state/@state='open|filtered'"
+    description: учитывать также 'open|filtered' порты
+    
+
+mode:
+  format:
+    target: '{!r}'
+    o: '{!r}'
+    T: '-T{}'
+    top-tcp: ' --top-ports {}'
+    top-udp: ' --top-ports {}'
+
+shell: bash
+
+script: >-
+  #f# #target# | sort -u > ./_uniq_targets.txt;
+  sudo nmap #T# --open -Pn #sT# -p-#top-tcp# -oX ./_nmap_open_tcp.xml -iL ./_uniq_targets.txt;
+  sudo nmap #T# --open -Pn -sU -p-#top-udp# -oX ./_nmap_open_udp.xml -iL ./_uniq_targets.txt;
+  sudo nmap #T# --open -Pn #sT# -sU -O -sV --open -p$(xmlstarlet sel -t -m "/nmaprun/host/ports/port" #more# -v "@portid" --nl ./_nmap_open_tcp.xml ./_nmap_open_udp.xml | sort -n | uniq | paste -sd ',') -oA #o# -iL ./_uniq_targets.txt;
+  rm ./_nmap_open_tcp.xml ./_nmap_open_udp.xml ./_uniq_targets.txt
+
+
+

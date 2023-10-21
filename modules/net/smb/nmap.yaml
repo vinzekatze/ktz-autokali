@@ -5,9 +5,6 @@ tags:
   - smb
   - 445
   - search
-install:
-  sudo apt install nmap
-  sudo apt install libxml2-utils
 
 arguments:
   f:
@@ -54,7 +51,7 @@ mode:
 shell: bash
 
 script: >-
-  sudo nmap __NMAP_T__ --open -Pn __NMAP_MODE__ -p 445 -oG ./_nmap_smb_search.xml __TARGS_FORMATED__;
+  sudo nmap __NMAP_T__ --open -Pn __NMAP_MODE__ -p 445 -oX ./_nmap_smb_search.xml __TARGS_FORMATED__;
   xmllint ./_nmap_smb_search.xml --xpath "/nmaprun/host[ports/port[@portid='445']/state/@state='open']/address/@addr" 2>/dev/null | sed -e 's/ addr="\(.*\)"/\1/' | sort -u > __LIST__;
   sort __LIST__ -u -t. -k1,1n -k2,2n -k3,3n -k4,4n -o __LIST__;
   rm ./_nmap_smb_search.xml

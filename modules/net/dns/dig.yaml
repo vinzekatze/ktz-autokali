@@ -15,15 +15,15 @@ description: |-
     - srv   *перечисляет SRV записи по словарю
     - txt
 
+install: |-
+  нужны dig и nmap
+
 author: vinzekatze
 tags:
   - dig
   - recon
   - domains
   - srv
-install: |-
-  dig
-  nmap
 
 shell: bash
 
@@ -86,7 +86,7 @@ mode:
       mx: 'dig #n# #tcp# +noall +answer +multiline mx #d# #v#;'
       ns: 'dig #n# #tcp# +noall +answer +multiline ns #d# #v#;'
       ptr: >-
-        { nmap -n -4 -sL #d# 2>/dev/null; nmap -n -6 -sL #d# 2>/dev/null } | awk '/Nmap scan report/{print "-x "$NF}' | tr -d '()' > ./_tmp_ips.txt; dig #n# #tcp# +noall +answer +multiline -f ./_tmp_ips.txt #v#; rm ./_tmp_ips.txt
+        { nmap -n -4 -sL #d# 2>/dev/null; nmap -n -6 -sL #d# 2>/dev/null; } | awk '/Nmap scan report/{print "-x "$NF}' | tr -d '()' > ./_tmp_ips.txt; dig #n# #tcp# +noall +answer +multiline -f ./_tmp_ips.txt #v#; rm ./_tmp_ips.txt;
       soa: 'dig #n# #tcp# +noall +answer +multiline soa #d# #v#;'
       srv: >-
         dig #n# #tcp# +noall +answer +multiline SRV $(for targ in #d#; do for srv in $(cat '#big-srv#'); do echo "${srv}.${targ}"; done; done) #v#;

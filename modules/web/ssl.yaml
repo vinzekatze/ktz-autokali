@@ -8,8 +8,7 @@ tags:
   - web
   - https
   - ciphersuite.info
-install: |-
-  sudo apt install sslscan
+
 arguments:
   url:
     default:

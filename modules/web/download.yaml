@@ -11,9 +11,6 @@ tags:
   - https
   - httrack
   - exiftool
-install: |-
-  sudo apt install httrack
-  sudo apt install libimage-exiftool-perl
 arguments:
   url:
     default:

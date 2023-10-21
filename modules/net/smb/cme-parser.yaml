@@ -8,9 +8,6 @@ tags:
   - crackmapexec
   - parse
 
-install:
-  sudo apt install ansi2txt
-
 arguments:
   f:
     default:
