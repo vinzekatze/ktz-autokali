@@ -11,6 +11,9 @@ script: |-
   # net
   sudo apt install -y nmap metasploit-framework libxml2-utils colorized-logs xmlstarlet
 
+  # net/ike
+  sudo apt inslatt -y patator ike-scan
+
   # net/dns
   sudo apt install -y recon-ng dnsutils amass subfinder assetfinder
 
@@ -32,5 +35,6 @@ script: |-
   
   #!!!!!!!!!!!!!!!!!!!!
   # docker
-  #docker -v || exit
-  #docker pull simplyemail
+  docker -v || exit
+  docker pull simplyemail
+  docker pull elrey741/ikeforce

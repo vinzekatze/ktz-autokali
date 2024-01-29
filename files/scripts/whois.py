@@ -1,4 +1,5 @@
 import dns.resolver
+import dns.exception
 import ipwhois
 import argparse
 import ipaddress
@@ -40,7 +41,7 @@ def ResoveTarget(target, query, datadict, tcp=False):
             DnsDataUpdate(ip=ipval.to_text(), domain=target, datadict=datadict)
             AddToList(resolved, target)
             
-    except (dns.resolver.NoAnswer, dns.resolver.NoNameservers, dns.resolver.NXDOMAIN):
+    except (dns.resolver.NoAnswer, dns.resolver.NoNameservers, dns.resolver.NXDOMAIN, dns.exception.Timeout):
         if target not in resolved:
             AddToList(notresolved, target)
 
