@@ -20,8 +20,9 @@ bshm library add ktz-autokali
 bshm library use ktz-autokali
 ```
 
-(Не доработано!) Установить необходимые тулзы (`docker` придется ставить вручную):
+Установить все необходимое:
 
 ```
-bshm use install
+bshm use install --item 1-6
 ```
+После установки рекомендуется перелогиниться

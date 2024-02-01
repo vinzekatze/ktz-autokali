@@ -113,6 +113,7 @@ parser.add_argument("--domains", nargs='*')
 parser.add_argument("--domains-files", nargs='*')
 parser.add_argument("--ips", nargs='*')
 parser.add_argument("--ips-files", nargs='*')
+parser.add_argument("--output")
 args = parser.parse_args()
 
 # Считывание доменов
@@ -152,12 +153,16 @@ table = []
 MakeTable(data4, table)
 MakeTable(data6, table)
 if table:
-    print(tabulate(table, headers, tablefmt="simple"))
+    out_table=f'{tabulate(table, headers, tablefmt="simple")}\n\n\n'
+    print(out_table, end='')
 else:
-    print()
-    print("Nothing found")
+    print("Nothing found\n")
 
 if notresolved:
-    print()
-    print(f'Not resolved: {", ".join(notresolved)}')
+    out_not_resolved=f'Not resolved: {", ".join(notresolved)}\n\n\n'
+    print(out_not_resolved, end='')
 
+if args.output:
+    with open(args.output, 'a', encoding="utf-8") as fp:
+        fp.write(out_table)
+        if notresolved: fp.write(out_not_resolved)

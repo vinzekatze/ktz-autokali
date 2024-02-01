@@ -1,40 +1,83 @@
-description: Скрипт установки всего, что требуется для библиотеки
+description: |-
+  Скрипт установки всего, что требуется для функционирования библиотеки
+
 shell: bash
 
 file_1:
+  path: install/apt_installs.txt
+  replacer: >-
+    #apt_installs#
+  description: список установок из apt
+
+file_2:
+  path: install/docker_images.txt
+  replacer: >-
+    #docker_installs#
+  description: список docker-образов
+
+file_3:
+  path: install/python_installs.txt
+  replacer: >-
+    #python_installs#
+  description: список python-пакетов
+
+file_4:
   path: install/recon-ng_cmd.txt
+  replacer: >-
+    #recon-ng_installs#
   description: команды для установки модулей recon-ng
 
-script: |-
-  sudo apt update -y
 
-  # net
-  sudo apt install -y nmap metasploit-framework libxml2-utils colorized-logs xmlstarlet
 
-  # net/ike
-  sudo apt inslatt -y patator ike-scan
+item_1: 
+  description: apt update -y
+  script: >-
+    sudo apt update -y &&
+    echo -e "\e[1;92m+++ APT REPOSITORIES UPDATED\e[0m" ||
+    echo -e "\e[1;91m+++ APT REPOSITORIES NOT UPDATED\e[0m"
 
-  # net/dns
-  sudo apt install -y recon-ng dnsutils amass subfinder assetfinder
+item_2:
+  description: установка docker
+  script: >-
+    if sudo su - $USER -c 'docker run hello-world';
+    then echo -e "\e[1;94m+++ DOCKER ALREADY INSTALLED\e[0m";
+    else
+    sudo apt install -y docker.io && (sudo systemctl enable docker --now && (docker --version && sudo usermod -aG docker $USER));
+    sudo su - $USER -c 'docker run hello-world' && 
+    echo -e "\e[1;92m+++ DOCKER SUCCESSFULLY INSTALLED\e[0m" ||
+    echo -e "\e[1;91m+++ DOCKER INSTALLATION ERROR\e[0m";
+    fi
 
-  # net/smb*
-  sudo apt install -y smbclient
+item_3:
+  description: загрузка docker-образов
+  script: >-
+    if sudo su - $USER -c 'docker run hello-world'; then
+    for image in $(cat "#docker_installs#");
+    do sudo su - $USER -c "docker pull $image" &&
+    echo -e "\e[1;92m+++ [DOCKER] SUCCESSFULLY INSTALLED: $image\e[0m" ||
+    echo -e "\e[1;91m+++ [DOCKER] INSTALLATION ERROR: $image\e[0m";
+    done;
+    else echo -e "\e[1;91m+++ DOCKER NOT INSTALLED\e[0m"; fi
 
-  # web
-  sudo apt install -y httrack libimage-exiftool-perl sslscan dirsearch
+item_4:
+  description: установка тулзов с помощью apt
+  script: >-
+    for tool in $(cat "#apt_installs#");
+    do sudo apt install -y $tool &&
+    echo -e "\e[1;92m+++ [APT] SUCCESSFULLY INSTALLED: $tool\e[0m" ||
+    echo -e "\e[1;91m+++ [APT] INSTALLATION ERROR: $tool\e[0m";
+    done; sudo apt autoremove -y
 
-  # osint
-  sudo apt install -y theharvester libimage-exiftool-perl
+item_5:
+  description: скриптовые установки
+  script: >-
+    recon-ng -r #recon-ng_installs#
 
-  # внутретулзовые установки
-  recon-ng -r #file_1#
-  
-  # установки python библиотек
-  pip install --upgrade ipwhois
-  pip install --upgrade dnspython
-  
-  #!!!!!!!!!!!!!!!!!!!!
-  # docker
-  docker -v || exit
-  docker pull simplyemail
-  docker pull elrey741/ikeforce
+item_6:
+  description: установка python-пакетов
+  script: >-
+    for py_pack in $(cat "#python_installs#"); do
+    pip install --upgrade $py_pack &&
+    echo -e "\e[1;92m+++ [PYTHON] SUCCESSFULLY INSTALLED: $py_pack\e[0m" ||
+    echo -e "\e[1;91m+++ [PYTHON] INSTALLATION ERROR: $py_pack\e[0m";
+    done

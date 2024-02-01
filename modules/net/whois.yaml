@@ -41,7 +41,11 @@ arguments:
     metavar: FILE
     multiple: true
     description: Читать IP из файлов
-
+  o:
+    default:
+      -
+    metavar: PATH
+    description: Записать в файл
 
 file_1:
   path: scripts/whois.py
@@ -53,6 +57,7 @@ mode:
     i: '{!r}'
     dfile: '{!r}'
     ifile: '{!r}'
+    o: '--output {!r}'
   pformat:
     d: '--domains {} '
     i: '--ips {} '
@@ -60,4 +65,4 @@ mode:
     ifile: '--ips-files {}'
 
 script: >-
-  python3 '#file_1#' #d##i##dfile##ifile#
+  python3 '#file_1#' #d##i##dfile##ifile##o#
