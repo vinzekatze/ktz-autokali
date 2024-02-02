@@ -121,7 +121,8 @@ item_4:
         -d {!r}
   description: Поиск с помощью amass
   script: >-
-    amass enum -dns-qps 200 -active __BRUTE__ -o '__PATH__.temp' __DOMAINS__;
+    amass enum -alts -dns-qps 200 -active __BRUTE__ -o '__PATH__.temp2' __DOMAINS__;
+    grep -oP '([a-z0-9-_]+\.)+[a-z]+' '__PATH__.temp2' > '__PATH__.temp';
     touch '__PATH__'; 
     grep -vsxf '__PATH__' '__PATH__.temp' >> '__PATH__';
-    rm '__PATH__.temp'
+    rm '__PATH__.temp' '__PATH__.temp2'
