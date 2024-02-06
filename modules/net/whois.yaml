@@ -62,7 +62,7 @@ mode:
     d: '--domains {} '
     i: '--ips {} '
     dfile: '--domains-files {} '
-    ifile: '--ips-files {}'
+    ifile: '--ips-files {} '
 
 script: >-
   python3 '#file_1#' #d##i##dfile##ifile##o#
