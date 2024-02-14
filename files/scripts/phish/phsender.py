@@ -216,7 +216,7 @@ for img in soup.findAll('img'):
                          mode='rb',
                          error_msg=f'<SCRIPT STOPPED>: Image \'{src}\' at html-code open error')
     ext = pathlib.Path(src).suffix[1:]
-    cid = make_msgid(domain=f'{ran_gen(8)}.{ran_gen(8)}')
+    cid = f'<{src_path.name}@{ran_gen(8)}.{ran_gen(8)}>'
     img_attachs[cid] = [img_data, ext, src_path.name]
     img['src'] = 'cid:{cid}'.format(cid=cid[1:-1])
 
@@ -268,29 +268,31 @@ for line_number, line in enumerate(read_file(path=emails_list,
         msg['Accept-Language'] = 'ru-RU, en-US'
         msg['Reply-To'] = sender_addr
         msg['Return-Path'] = sender_email
+        #if img_attachs.keys() or other_attachs.keys():
+        #    msg['X-MS-Has-Attach'] = 'yes'
         #msg['X-Mailer'] = 'calc.exe'
+        msg.preamble = 'This is a multi-part message in MIME format.\n'
         
         msg.set_content(new_body_text, cte="base64")
-        msg_struct = [part for part in msg.walk()]
 
-        msg_struct[0].add_alternative(body_html_fin, subtype='html', cte="base64")
-        msg_struct = [part for part in msg.walk()]
-
+        msg.add_alternative(body_html_fin, subtype='html', cte="base64")
         for img_cid in img_attachs.keys():
-            msg_struct[2].add_related(img_attachs[img_cid][0],
-                                    maintype='image',
-                                    subtype=img_attachs[img_cid][1],
-                                    cid=img_cid,
-                                    filename=img_attachs[img_cid][2],
-                                    disposition='inline',
-                                    headers=[])
+            msg.get_payload()[1].add_related(img_attachs[img_cid][0],
+                                             maintype='image',
+                                             subtype=img_attachs[img_cid][1],
+                                             cid=img_cid,
+                                             filename=img_attachs[img_cid][2],
+                                             disposition='inline',
+                                             params={'name': img_attachs[img_cid][2]})
 
         for filename in other_attachs.keys():
             msg.add_attachment(other_attachs[filename]['data'], 
                                maintype=other_attachs[filename]['maintype'],
                                subtype=other_attachs[filename]['subtype'],
-                               filename=filename)
-        
+                               filename=filename,
+                               params={'name': filename},
+                               headers=[f'Content-Description: {filename}'])
+    
         
         ### Отправка и/или сохранение eml-файлов
         # --------------------------------------
