@@ -1,9 +1,9 @@
-description: Саздает файлы, направляющие коннект пользователя на атакующий сервер (ntlmrelayx, responder ...)
+description: |-
+  Создает файлы, направляющие smb-коннект пользователя на атакующий сервер (ntlmrelayx, responder ...)
 author: vinzekatze
 tags:
-  - 445
+  - shares
   - smb
-  - relay
   - .url
 
 arguments:

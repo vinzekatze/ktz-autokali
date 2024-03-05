@@ -19,9 +19,15 @@ file_3:
   path: install/python_installs.txt
   replacer: >-
     #python_installs#
-  description: список python-пакетов
+  description: список python-пакетов (pip)
 
 file_4:
+  path: install/python_pipx_installs.txt
+  replacer: >-
+    #python_pipx_installs#
+  description: список python-пакетов (pipx)
+
+file_5:
   path: install/recon-ng_cmd.txt
   replacer: >-
     #recon-ng_installs#
@@ -69,15 +75,25 @@ item_4:
     done; sudo apt autoremove -y
 
 item_5:
-  description: скриптовые установки
-  script: >-
-    recon-ng -r #recon-ng_installs#
-
-item_6:
-  description: установка python-пакетов
+  description: установка python-пакетов (PIP)
   script: >-
     for py_pack in $(cat "#python_installs#"); do
     pip install --upgrade $py_pack &&
-    echo -e "\e[1;92m+++ [PYTHON] SUCCESSFULLY INSTALLED: $py_pack\e[0m" ||
-    echo -e "\e[1;91m+++ [PYTHON] INSTALLATION ERROR: $py_pack\e[0m";
+    echo -e "\e[1;92m+++ [PIP] SUCCESSFULLY INSTALLED: $py_pack\e[0m" ||
+    echo -e "\e[1;91m+++ [PIP] INSTALLATION ERROR: $py_pack\e[0m";
     done
+
+item_6:
+  description: установка python-пакетов (PIPX)
+  script: >-
+    pipx ensurepath;
+    for py_pack in $(cat "#python_pipx_installs#"); do
+    pipx install $py_pack &&
+    echo -e "\e[1;92m+++ [PIPX] SUCCESSFULLY INSTALLED: $py_pack\e[0m" ||
+    echo -e "\e[1;91m+++ [PIPX] INSTALLATION ERROR: $py_pack\e[0m";
+    done
+
+item_7:
+  description: скриптовые установки
+  script: >-
+    recon-ng -r #recon-ng_installs#
