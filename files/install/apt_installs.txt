@@ -3,6 +3,7 @@ assetfinder
 colorized-logs
 dirsearch
 dnsutils
+git
 httrack
 ike-scan
 libimage-exiftool-perl
@@ -10,6 +11,8 @@ libxml2-utils
 metasploit-framework
 nmap
 patator
+proxychains4
+pipx
 recon-ng
 sendemail
 smbclient
