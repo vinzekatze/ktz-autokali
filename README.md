@@ -24,7 +24,7 @@ bshm library scan -f
 Установить все необходимое:
 
 ```
-bshm use install --item 1-6
+bshm use install --item 1-7
 ```
 После установки рекомендуется перелогиниться из-за docker
 

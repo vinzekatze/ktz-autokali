@@ -78,7 +78,7 @@ item_5:
   description: установка python-пакетов (PIP)
   script: >-
     for py_pack in $(cat "#python_installs#"); do
-    pip install --upgrade $py_pack &&
+    pip install --upgrade --break-system-packages $py_pack &&
     echo -e "\e[1;92m+++ [PIP] SUCCESSFULLY INSTALLED: $py_pack\e[0m" ||
     echo -e "\e[1;91m+++ [PIP] INSTALLATION ERROR: $py_pack\e[0m";
     done

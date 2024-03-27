@@ -12,6 +12,7 @@ metasploit-framework
 nmap
 patator
 proxychains4
+python3-pip
 pipx
 recon-ng
 sendemail
