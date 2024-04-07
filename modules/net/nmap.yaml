@@ -1,12 +1,7 @@
 description: |-
   Определяет открытые TCP и UDP порты, затем определяет версии сервисов на них.
 
-  Рекомендую скармливать только живые хосты, иначе процесс может затянуться (сканирует с '-Pn').
-  Также не забудь указать --top-udp, а то пойдет по всему диапазону.
-
-  Запинговаться можно, например, так:
-  
-  sudo nmap -n -sn -PO -PE -PS21-23,25,53,80-81,110-111,113,135,139,143,199,443,445,465,548,587,993,995,1025,1720,1723,3306,3389,5900,6001,8080,8888 -PU53,67,123,135,137-138,161,445,631,1434,31338 TARGETS
+  На вход принимает только файлы.
 author: vinzekatze
 install:
   sudo apt install nmap xmlstarlet
@@ -17,26 +12,18 @@ tags:
   - version
   - recon
 arguments:
-  f:
+  p:
     default:
-      - echo
-      - cat
-    description: скормить скрипту файлы со списками целей
-
+      - 'N'
+      - 'Y'
+    description: определить живые хосты перед сканом
   target:
     multiple: true
-    description: цели для сканирования nmap
+    description: файлы с целями для сканирования nmap
   o:
     metavar: FILE
     default: ./nmap-scan
     description: базовае название выходного файла для флага '-oA'
-
-  sT:
-    default:
-      - -sS
-      - -sT
-    description: использовать TCP сканирование для nmap вместо SYN
-
   T:
     default:
       - 3
@@ -46,6 +33,23 @@ arguments:
       - 4
       - 5
     description: интенсивность сканирования nmap
+  sT:
+    default:
+      - -sS
+      - -sT
+    description: использовать TCP сканирование для nmap вместо SYN
+  ipv6:
+    default:
+      - '4'
+      - '6'
+    description: сканировать ipv6
+  hostgroup:
+    metavar: NUM
+    regex: \d+
+    default:
+      -
+    description: задать флаг '--min-hostgroup'
+
   top-tcp:
     metavar: NUM
     regex: \d+
@@ -65,24 +69,30 @@ arguments:
       - >-
         --if "state/@state='open' or state/@state='open|filtered'"
     description: учитывать также 'open|filtered' порты
-    
 
 mode:
   format:
     target: '{!r}'
-    o: '{!r}'
+    o: '{}-ipv#ipv6#'
     T: '-T{}'
+    hostgroup: ' --min-hostgroup {}'
     top-tcp: ' --top-ports {}'
     top-udp: ' --top-ports {}'
+  pformat:
+    o: '{!r}'
+  replace:
+    p:
+      N: >-
+        cat #target# | sort -uR > ./_alive_targets.txt;
+      Y: >-
+        cat #target# | sort -uR > ./_uniq_targets.txt;
+        sudo nmap -#ipv6##hostgroup# -d -n -sn -PO -PE -PS21-23,25,53,80-81,110-111,113,135,139,143,199,443,445,465,548,587,993,995,1025,1720,1723,3306,3389,5900,6001,8080,8888 -PU53,67,123,135,137-138,161,445,631,1434,31338 -oX ./_nmap_alive_hosts.xml -iL ./_uniq_targets.txt;
+        xmlstarlet sel -t -m "/nmaprun/host/address" --if "../status/@state='up' and (@addrtype='ipv4' or @addrtype='ipv6')" -v "@addr" --nl ./_nmap_alive_hosts.xml | sort -uR > ./_alive_targets.txt;
 
 shell: bash
-
 script: >-
-  #f# #target# | sort -u > ./_uniq_targets.txt;
-  sudo nmap #T# --open -Pn #sT# -p-#top-tcp# -oX ./_nmap_open_tcp.xml -iL ./_uniq_targets.txt;
-  sudo nmap #T# --open -Pn -sU -p-#top-udp# -oX ./_nmap_open_udp.xml -iL ./_uniq_targets.txt;
-  sudo nmap #T# --open -Pn #sT# -sU -O -sV --open -p$(xmlstarlet sel -t -m "/nmaprun/host/ports/port" #more# -v "@portid" --nl ./_nmap_open_tcp.xml ./_nmap_open_udp.xml | sort -n | uniq | paste -sd ',') -oA #o# -iL ./_uniq_targets.txt;
-  rm ./_nmap_open_tcp.xml ./_nmap_open_udp.xml ./_uniq_targets.txt
-
-
-
+  #p#
+  sudo nmap -#ipv6##hostgroup# -d #T# --open -Pn #sT# -p-#top-tcp# -oX ./_nmap_open_tcp.xml -iL ./_alive_targets.txt;
+  sudo nmap -#ipv6##hostgroup# -d #T# --open -Pn -sU -p-#top-udp# -oX ./_nmap_open_udp.xml -iL ./_alive_targets.txt;
+  sudo nmap -#ipv6##hostgroup# -d #T# --open -Pn #sT# -sU -O -sV --open -p$(xmlstarlet sel -t -m "/nmaprun/host/ports/port" #more# -v "@portid" --nl ./_nmap_open_tcp.xml ./_nmap_open_udp.xml | sort -uR | paste -sd ',') -oA #o# -iL ./_alive_targets.txt;
+  rm -f ./_uniq_targets.txt ./_alive_targets.txt ./_nmap_alive_hosts.xml ./_nmap_open_tcp.xml ./_nmap_open_udp.xml
