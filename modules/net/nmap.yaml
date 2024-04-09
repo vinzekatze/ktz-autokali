@@ -1,7 +1,5 @@
 description: |-
   Определяет открытые TCP и UDP порты, затем определяет версии сервисов на них.
-
-  На вход принимает только файлы.
 author: vinzekatze
 install:
   sudo apt install nmap xmlstarlet
@@ -12,11 +10,11 @@ tags:
   - version
   - recon
 arguments:
-  p:
+  n:
     default:
-      - 'N'
       - 'Y'
-    description: определить живые хосты перед сканом
+      - 'N'
+    description: не определить живые хосты перед сканом
   target:
     multiple: true
     description: файлы с целями для сканирования nmap
@@ -81,7 +79,7 @@ mode:
   pformat:
     o: '{!r}'
   replace:
-    p:
+    n:
       N: >-
         cat #target# | sort -uR > ./_alive_targets.txt;
       Y: >-
@@ -91,8 +89,8 @@ mode:
 
 shell: bash
 script: >-
-  #p#
+  #n#
   sudo nmap -#ipv6##hostgroup# -d #T# --open -Pn #sT# -p-#top-tcp# -oX ./_nmap_open_tcp.xml -iL ./_alive_targets.txt;
   sudo nmap -#ipv6##hostgroup# -d #T# --open -Pn -sU -p-#top-udp# -oX ./_nmap_open_udp.xml -iL ./_alive_targets.txt;
-  sudo nmap -#ipv6##hostgroup# -d #T# --open -Pn #sT# -sU -O -sV --open -p$(xmlstarlet sel -t -m "/nmaprun/host/ports/port" #more# -v "@portid" --nl ./_nmap_open_tcp.xml ./_nmap_open_udp.xml | sort -uR | paste -sd ',') -oA #o# -iL ./_alive_targets.txt;
+  sudo nmap -#ipv6##hostgroup# -d #T# --open -Pn #sT# -sU -O -sV --open -p$(xmlstarlet sel -t -m "/nmaprun/host/ports/port" #more# -v "@portid" --nl ./_nmap_open_tcp.xml ./_nmap_open_udp.xml | sort -un | paste -sd ',') -oA #o# -iL ./_alive_targets.txt;
   rm -f ./_uniq_targets.txt ./_alive_targets.txt ./_nmap_alive_hosts.xml ./_nmap_open_tcp.xml ./_nmap_open_udp.xml
