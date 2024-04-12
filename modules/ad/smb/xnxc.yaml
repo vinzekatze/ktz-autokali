@@ -1,12 +1,13 @@
 description: |-
-  Набор однострочников для поиска информации в выводе crackmapexec
+  Набор однострочников для поиска информации в выводе crackmapexec/netexec
 author: vinzekatze
 tags:
   - 445
   - smb
   - nxc
   - netexec
-  - parse
+  - crackmapexec
+  - parser
 
 arguments:
   f:
@@ -43,7 +44,7 @@ mode:
   format:
     f: '{!r}'
     gi: 'grep -a -i --color=never -e {!r} |'
-    ge: 'grep -a -iv --color=never -e {!r} |'
+    ge: 'grep -a -i -v --color=never -e {!r} |'
 
 item_1:
   mode:
@@ -80,7 +81,7 @@ item_4:
         awk -v FS='SMB ' '{{print "SMB",$2}}' | awk '{{print $2}}' |
   description: получить ip адреса smb хостов, уязвимых к relay атакам
   script: >-
-    cat __FILE__ | ansi2txt | __GREP-IN__ __GREP-EX__ grep -a --color=never -e 'SMB*.*\[\*\].*(signing:False)' | grep --color=never -i -e 'SMB*.*\[\*\].*windows' | __SHOR__ sort -u
+    cat __FILE__ | ansi2txt | __GREP-IN__ __GREP-EX__ grep -a --color=never -e 'SMB*.*\[\*\].*(signing:False)' | grep -a --color=never -i -e 'SMB*.*\[\*\].*windows' | __SHOR__ sort -u
 
 item_5:
   mode:
@@ -105,7 +106,7 @@ item_7:
     format:
       v: >-
         awk -v FS='SMB ' '{{print "SMB",$2}}' | awk -v FS='READ' '{{print $1}}' | awk '{{printf "\\\\" $2 "\\"; for(i=5;i<=NF;i++) if (i<NF) printf $i" "; else printf $i; print ""}}' |
-  description: получить доступные для чтения шары
+  description: READ шары - smbclient формат
   script:
     cat __FILE__ | ansi2txt | __GREP-IN__ __GREP-EX__ grep -a --color=never -e 'SMB*.*READ' | __SHOR__ sort -u
 
@@ -113,7 +114,25 @@ item_8:
   mode:
     format:
       v: >-
+        awk -v FS='SMB ' '{{print "SMB",$2}}' | awk '{{print $2}}' |
+  description: READ шары - IP-адреса хостов
+  script:
+    cat __FILE__ | ansi2txt | __GREP-IN__ __GREP-EX__ grep -a --color=never -e 'SMB*.*READ' | __SHOR__ sort -u
+
+item_9:
+  mode:
+    format:
+      v: >-
         awk -v FS='SMB ' '{{print "SMB",$2}}' | awk -v FS='READ' '{{print $1}}' | awk '{{printf "\\\\" $2 "\\"; for(i=5;i<=NF;i++) if (i<NF) printf $i" "; else printf $i; print ""}}' |
-  description: получить доступные для записи шары
+  description: WRITE шары - smbclient формат
+  script:
+    cat __FILE__ | ansi2txt | __GREP-IN__ __GREP-EX__ grep -a --color=never -e 'SMB*.*WRITE' | __SHOR__ sort -u
+
+item_10:
+  mode:
+    format:
+      v: >-
+        awk -v FS='SMB ' '{{print "SMB",$2}}' | awk '{{print $2}}' |
+  description: WRITE шары - IP-адреса хостов
   script:
     cat __FILE__ | ansi2txt | __GREP-IN__ __GREP-EX__ grep -a --color=never -e 'SMB*.*WRITE' | __SHOR__ sort -u
