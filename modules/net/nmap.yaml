@@ -57,8 +57,7 @@ arguments:
   top-udp:
     metavar: NUM
     regex: \d+
-    default:
-      -
+    default: 1000
     description: сканировать только топ <NUM> UDP-портов
   more:
     default:

@@ -14,6 +14,7 @@ patator
 proxychains4
 python3-pip
 pipx
+jq
 recon-ng
 sendemail
 smbclient

