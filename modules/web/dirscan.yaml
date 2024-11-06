@@ -1,18 +1,47 @@
+description: |-
+  Чуть более умный брутфорс директорий и файлов сайтов:
+    - сам подбирает словари под веб-приложение
+    - создает индивидуальный словарь из слов, собранных краулером
+  
+  Запускать только в подготовленной директории, тк будет складывать результаты по папкам
+
+author: vinzekatze
+tags:
+  - directory
+  - bruteforce
+  - dirsearch
+  - whatweb
+  - katana
+  - spider
+  - crawler
+
 arguments:
-  urls:
+  url:
     default:
     multiple: true
-    description: URL сайтов
+    description: >-
+      URL сайтов с указанием протокола и без слеша в конце (пример: https://yandex.ru http://scanme.org/path)
     replacer: '#url#'
+    regex: ^http[s]?:\/\/.*[^\/]$
   t:
     default: 10
     metavar: INT
     description: количество потоков
     replacer: '#threads#'
+    regex: '[1-9]\d*'
   u:
     default: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:108.0) Gecko/20100101 Firefox/108.0'
     description: User Agent
     replacer: '#useragent#'
+  
+  add-wordlist:
+    default:
+      - none
+      - small
+      - medium
+      - big
+    description: использовать дополнительный словарь
+    replacer: '#addwordlist#'
 
 file_1:
   path: wordlists/web/dirbrute/basic/dirsearch.txt
@@ -27,60 +56,76 @@ file_2:
 file_3:
   path: wordlists/web/dirbrute/basic/directory-list-2.3-small.txt
   description: directory-list-2.3-small из SecLists
-  replacer: '#directory-list#'
+  replacer: '#directory-list-small#'
 
 file_4:
+  path: wordlists/web/dirbrute/basic/directory-list-2.3-medium.txt
+  description: directory-list-2.3-medium из SecLists
+  replacer: '#directory-list-medium#'
+
+file_5:
+  path: wordlists/web/dirbrute/basic/directory-list-2.3-big.txt
+  description: directory-list-2.3-big из SecLists
+  replacer: '#directory-list-big#'
+
+file_6:
   path: wordlists/web/dirbrute/swagger.txt
   description: swagger директории из SecLists
   replacer: '#swagger#'
 
-file_5:
+file_7:
   path: wordlists/web/dirbrute/nginx.txt
   description: словарь для nginx
   replacer: '#nginx#'
 
-file_6:
+file_8:
   path: wordlists/web/dirbrute/apache.txt
   description: словарь для apache
   replacer: '#apache#'
 
-file_7:
+file_9:
   path: wordlists/web/dirbrute/iis.txt
   description: словарь для iis
   replacer: '#iis#'
 
-file_8:
+file_10:
   path: wordlists/web/dirbrute/oracle.txt
   description: словарь для oracle
   replacer: '#oracle#'
 
-file_9:
+file_11:
   path: wordlists/web/dirbrute/tomcat.txt
   description: словарь для tomcat
   replacer: '#tomcat#'
 
-file_10:
+file_12:
   path: wordlists/web/dirbrute/php.txt
   description: словарь для php
   replacer: '#php#'
 
-file_11:
+file_13:
   path: wordlists/web/dirbrute/cms/django.txt
   description: словарь для django
   replacer: '#django#'
 
-file_12:
+file_14:
   path: wordlists/web/dirbrute/cms/sharepoint.txt
   description: словарь для sharepoint
   replacer: '#sharepoint#'
 
 
 mode:
-  loop: urls
+  loop: url
   format:
-    urls: '{0!r}'
+    url: '{0!r}'
     t: '{0!r}'
     u: '{0!r}'
+  replace:
+    add-wordlist:
+      none:
+      small: ',#directory-list-small#'
+      medium: ',#directory-list-medium#'
+      big: ',#directory-list-big#'
 
 shell: bash
 script: |-
@@ -90,19 +135,18 @@ script: |-
 
   # Подготовка
   scanmarker="$(date +'%Y%m%d_%H%M%S')"
-  dirlists='#dirsearch#,#quickhits#'
+  dirlists='#dirsearch#,#quickhits##addwordlist#'
   dirname="$(echo $url | grep -soP '((?<=^http:\/\/)|(?<=^https:\/\/))(.)(.*?)(?=([\?&#]|$|\/$))' | sed -e 's/[^A-Za-z0-9._-]/_/g').$(echo $url | cut -d ':' -f 1)"
   
-  echo "Target: $url"
-  mkdir -p ./$dirname && echo "Loot:   $(realpath ./$dirname)" || exit
+  echo -e "\e[1;91mTarget:\e[0m $url"
+  mkdir -p ./$dirname && echo -e "\e[1;91mLoot:\e[0m   $(realpath ./$dirname)" || exit
   echo
   
   # Сканирование с помощью whatweb
-  echo "WhatWeb scanning..."
-  whatweb_out=$(whatweb --aggression 3 --max-threads="$threads" --color='never' --user-agent="$useragent" $url)
-  whatweb_out="$whatweb_out\n\n$(whatweb --no-errors --aggression 3 --max-threads=$threads --color='never' --user-agent="$useragent" $url/$(makepasswd --chars=42))"
-  whatweb_out="$whatweb_out\n\n$(whatweb --no-errors --aggression 3 --max-threads=$threads --color='never' --user-agent="$useragent" $url/../\\)"
-
+  echo -e "\e[1;92mWhatWeb scanning...\e[0m"
+  whatweb_out=$(whatweb --aggression 3 --max-threads="$threads" --color='never' --user-agent=#useragent# $url)
+  whatweb_out="$whatweb_out\n$(whatweb --no-errors --aggression 3 --max-threads=$threads --color='never' --user-agent=#useragent# $url/$(makepasswd --chars=42))"
+  whatweb_out="$whatweb_out\n$(whatweb --no-errors --aggression 3 --max-threads=$threads --color='never' --user-agent=#useragent# $url/../\\)"
   echo -e $whatweb_out > ./$dirname/result-whatweb-$scanmarker.txt
   
   # Подключение специфических словарей по результатам whatweb
@@ -114,10 +158,10 @@ script: |-
   echo -e $whatweb_out | grep -qis php && { dirlists="$dirlists,#php#"; echo "php detected" ; }
   echo -e $whatweb_out | grep -qis django && { dirlists="$dirlists,#django#"; echo "django detected" ; }
   echo -e $whatweb_out | grep -qis sharepoint && { dirlists="$dirlists,#sharepoint#"; echo "sharepoint detected" ; }
-
   echo
+
   # Краулинг сайта и получения индивидуального словаря
-  echo "Spidering..."
+  echo -e "\e[1;92mSpidering...\e[0m"
   docker run --rm projectdiscovery/katana:latest -silent -concurrency $threads -parallelism $threads -js-crawl -jsluice -system-chrome -headless -u $url |
   tee ./$dirname/result-spidering-$scanmarker.txt |
   grep -soP '((?=^http:\/\/)|(?=^https:\/\/))(?<=^)(.)(.*?)(?=([\?&#]|$|\/$))' | sed 's/\/$//' | sed 's/^http:\/\/[^/]*\///;s/^https:\/\/[^/]*\///' | grep -svP '^http.?:\/\/' | tr '/' '\n' | sort | uniq > ./$dirname/wordlist_spidering-$scanmarker.txt
@@ -127,15 +171,15 @@ script: |-
   echo
 
   # Статус словарей
-  echo "Prepared wordlists:"
+  echo -e "\e[1;92mPrepared wordlists:\e[0m"
   for wlist in $(echo $dirlists | tr ',' ' '); do echo "$(basename $wlist) [$(cat $wlist | wc -l)]"; done
   echo "---"
   echo "Total uniq lines: $(cat $(echo $dirlists | tr ',' ' ') | sort | uniq | wc -l)"
   echo 
 
   # Брут директорий
-  echo "Directory bruteforcing..."
-  dirsearch --no-color --quiet-mode --timeout=10 --retries=3 --full-url --include-status 200-208,226,400,401,403,405,500-511 --threads=$threads --user-agent=$useragent --recursive -R 4 --wordlists=$dirlists --url=$url | tee ./$dirname/result-dirsearch-$scanmarker.txt
+  echo -e "\e[1;92mDirectory bruteforcing...\e[0m"
+  dirsearch --no-color --quiet-mode --timeout=10 --retries=3 --full-url --include-status 200-208,226,400,401,403,405,500-511 --threads=$threads --user-agent=#useragent# --recursive -R 4 --wordlists=$dirlists --url=$url | tee ./$dirname/result-dirsearch-$scanmarker.txt
   echo
-  echo Done!
+  echo "Done!"
   echo
