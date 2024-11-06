@@ -99,18 +99,21 @@ script: |-
   
   # Сканирование с помощью whatweb
   echo "WhatWeb scanning..."
-  whatweb_out=$(whatweb --aggression 4 --max-threads="$threads" --color='never' --user-agent="$useragent" $url)
-  echo $whatweb_out > ./$dirname/result-whatweb-$scanmarker.txt
+  whatweb_out=$(whatweb --aggression 3 --max-threads="$threads" --color='never' --user-agent="$useragent" $url)
+  whatweb_out="$whatweb_out\n\n$(whatweb --no-errors --aggression 3 --max-threads=$threads --color='never' --user-agent="$useragent" $url/$(makepasswd --chars=42))"
+  whatweb_out="$whatweb_out\n\n$(whatweb --no-errors --aggression 3 --max-threads=$threads --color='never' --user-agent="$useragent" $url/../\\)"
+
+  echo -e $whatweb_out > ./$dirname/result-whatweb-$scanmarker.txt
   
   # Подключение специфических словарей по результатам whatweb
-  echo $whatweb_out | grep -qis nginx && { dirlists="$dirlists,#nginx#"; echo "nginx detected" ; }
-  echo $whatweb_out | grep -qis apache && { dirlists="$dirlists,#apache#"; echo "apache detected" ; }
-  echo $whatweb_out | grep -qis iis && { dirlists="$dirlists,#iis#"; echo "iis detected" ; }
-  echo $whatweb_out | grep -qis oracle && { dirlists="$dirlists,#oracle#"; echo "oracle detected" ; }
-  echo $whatweb_out | grep -qis tomcat && { dirlists="$dirlists,#tomcat#"; echo "tomcat detected" ; }
-  echo $whatweb_out | grep -qis php && { dirlists="$dirlists,#php#"; echo "php detected" ; }
-  echo $whatweb_out | grep -qis django && { dirlists="$dirlists,#django#"; echo "django detected" ; }
-  echo $whatweb_out | grep -qis sharepoint && { dirlists="$dirlists,#sharepoint#"; echo "sharepoint detected" ; }
+  echo -e $whatweb_out | grep -qis nginx && { dirlists="$dirlists,#nginx#"; echo "nginx detected" ; }
+  echo -e $whatweb_out | grep -qis apache && { dirlists="$dirlists,#apache#"; echo "apache detected" ; }
+  echo -e $whatweb_out | grep -qis iis && { dirlists="$dirlists,#iis#"; echo "iis detected" ; }
+  echo -e $whatweb_out | grep -qis oracle && { dirlists="$dirlists,#oracle#"; echo "oracle detected" ; }
+  echo -e $whatweb_out | grep -qis tomcat && { dirlists="$dirlists,#tomcat#"; echo "tomcat detected" ; }
+  echo -e $whatweb_out | grep -qis php && { dirlists="$dirlists,#php#"; echo "php detected" ; }
+  echo -e $whatweb_out | grep -qis django && { dirlists="$dirlists,#django#"; echo "django detected" ; }
+  echo -e $whatweb_out | grep -qis sharepoint && { dirlists="$dirlists,#sharepoint#"; echo "sharepoint detected" ; }
 
   echo
   # Краулинг сайта и получения индивидуального словаря
