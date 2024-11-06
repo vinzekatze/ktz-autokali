@@ -29,9 +29,16 @@ arguments:
     description: количество потоков
     replacer: '#threads#'
     regex: '[1-9]\d*'
+  d:
+    default: 3
+    metavar: INT
+    description: глубина перечисления субдиректорий
+    replacer: '#brutedepth#'
+    regex: '[1-9]\d*'
+
   u:
     default: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:108.0) Gecko/20100101 Firefox/108.0'
-    description: User Agent
+    description: User-Agent
     replacer: '#useragent#'
   
   add-wordlist:
@@ -179,7 +186,7 @@ script: |-
 
   # Брут директорий
   echo -e "\e[1;92mDirectory bruteforcing...\e[0m"
-  dirsearch --no-color --quiet-mode --timeout=10 --retries=3 --full-url --include-status 200-208,226,400,401,403,405,500-511 --threads=$threads --user-agent=#useragent# --recursive -R 4 --wordlists=$dirlists --url=$url | tee ./$dirname/result-dirsearch-$scanmarker.txt
+  dirsearch --no-color --quiet-mode --timeout=10 --retries=3 --full-url --include-status 200-208,226,400,401,403,405,500-511 --threads=$threads --user-agent=#useragent# --recursive -R #brutedepth# --wordlists=$dirlists --url=$url | tee ./$dirname/result-dirsearch-$scanmarker.txt
   echo
   echo "Done!"
   echo
