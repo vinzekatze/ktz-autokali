@@ -135,7 +135,7 @@ script: |-
 
   # Брут директорий
   echo "Directory bruteforcing..."
-  dirsearch --no-color --quiet-mode --timeout=10 --retries=3 --full-url --include-status 200-208,226,400,401,403,405,500-511 --threads=$threads --user-agent=$useragent --recursive --max-recursion-depth=4 --wordlists=$dirlists --url=$url 2>/dev/null | tee ./$dirname/result-dirsearch-$scanmarker.txt
+  dirsearch --no-color --quiet-mode --timeout=10 --retries=3 --full-url --include-status 200-208,226,400,401,403,405,500-511 --threads=$threads --user-agent=$useragent --recursive -R 4 --wordlists=$dirlists --url=$url | tee ./$dirname/result-dirsearch-$scanmarker.txt
   echo
   echo Done!
   echo
