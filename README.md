@@ -18,6 +18,7 @@ bshm library use ktz-autokali
 ```
 bshm shell add /usr/bin/bash
 bshm shell add /usr/bin/python3
+bshm shell add /usr/bin/msfconsole --name msfconsole --popen-args '["-q", "-x"]'
 bshm library scan -f
 ```
 

@@ -1,0 +1,25 @@
+description: |-
+  Базовый аудит ssh (да, мне на столько лень)
+
+author: vinzekatze
+tags:
+  - 22
+  - ssh
+  - ssh-audit
+
+arguments:
+  target:
+    multiple: true
+    description: цели для сканирования (ip:порт)
+
+mode:
+  loop: target
+  format:
+    target: '{!r}'
+
+install: pipx install ssh-audit
+
+
+shell: bash
+script: >-
+  ssh-audit #target#

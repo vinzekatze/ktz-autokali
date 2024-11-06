@@ -20,6 +20,8 @@ attachments_paths:
 # Email получателя кодируется в строку HEX и подставляется
 # вместо реплейсера в body_html и body_txt
 recipient_id_replacer: __VICTIM_ID__
+# Подставляет обращение к получателю в тексте.
+recipient_name_replacer: __VICTIM_NAME__
 
 # +++++++++++++++++++
 # Данные для отправки

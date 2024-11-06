@@ -155,6 +155,10 @@ try:
                                                 types=[str],
                                                 can_be_empty=True,
                                                 error_msg=key_error_str.format(key_name='recipient_id_replacer', yaml_path=yaml_path))
+        recipient_name_replacer = yaml_fast_error(content=content['recipient_name_replacer'],
+                                                types=[str],
+                                                can_be_empty=True,
+                                                error_msg=key_error_str.format(key_name='recipient_name_replacer', yaml_path=yaml_path))
         subject = yaml_fast_error(content=content['subject'],
                                   types=[str],
                                   error_msg=key_error_str.format(key_name='subject', yaml_path=yaml_path))
@@ -247,19 +251,28 @@ for line_number, line in enumerate(read_file(path=emails_list,
                                              error_msg=f'<SCRIPT STOPPED>: Email list \'{emails_list}\' open error').splitlines(),
                                    start=1):
     if line:
-        recipient_data = line.split(':', 1)
+        recipient_data = line.split(':',2)
         recipient_email = recipient_data[0]
         if not check_email(recipient_email, 'Recipient'):
             print(f'line {line_number} (\'{line}\') at file \'{emails_list}\' was skiped')
             continue
-        if len(recipient_data) == 2 and recipient_data[1]:
-            recipient_name = recipient_data[1] 
+        if len(recipient_data) >= 2 and recipient_data[1]:
+            recipient_name = recipient_data[1]
         else:
             recipient_name = recipient_data[0].split("@", 1)[0].title()
         recipient_addr = Address(recipient_name, recipient_email.split('@', 1)[0], recipient_email.split('@', 1)[1])
         canary_str = canary_make(recipient_email)
-        new_body_text = replace_in_text(input=body_text, replacer=recipient_id_replacer, text=canary_str)
-        body_html_fin = replace_in_text(input=body_html_imgfix, replacer=recipient_id_replacer, text=canary_str)
+
+        if len(recipient_data) == 3 and recipient_data[2]:
+            recipient_intext_name = recipient_data[2]
+        else:
+            recipient_intext_name = ''
+        
+        pre_body_text = replace_in_text(input=body_text, replacer=recipient_id_replacer, text=canary_str)
+        new_body_text = replace_in_text(input=pre_body_text, replacer=recipient_name_replacer, text=recipient_intext_name)
+        
+        pre_body_html_fin = replace_in_text(input=body_html_imgfix, replacer=recipient_id_replacer, text=canary_str)
+        body_html_fin = replace_in_text(input=pre_body_html_fin, replacer=recipient_name_replacer, text=recipient_intext_name)
         
         msg = EmailMessage()
         msg['Subject'] = subject

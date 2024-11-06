@@ -1,0 +1,47 @@
+description: |-
+  Перечисление пользователей ssh с помощью msf
+
+author: vinzekatze
+tags:
+  - 22
+  - ssh
+  - users
+  - enumeration
+  - msfconsole
+  - metasploit
+
+arguments:
+  target:
+    multiple: true
+    description: цели для сканирования (например, в формате 'ip:порт')
+  w:
+    default: >-
+      #file_1#
+    description: путь до файла со списком пользователей
+    replacer: '#userlist#'
+    metavar: FILE
+  t:
+    default:
+      - Malformed Packet
+      - Timing Attack
+    description: Использовать Timing Attack вместо Malformed Packet
+
+mode:
+  format:
+    target: >-
+      tcp://{!r}
+    w: >- 
+      {}
+
+file_1:
+  path: wordlists/ssh/usernames.txt
+  description: словарь имен пользователей
+
+shell: msfconsole
+script: >-
+  use scanner/ssh/ssh_enumusers;
+  set RHOSTS #target#;
+  set USER_FILE #userlist#;
+  set VERBOSE true;
+  run action='#t#';
+  exit;

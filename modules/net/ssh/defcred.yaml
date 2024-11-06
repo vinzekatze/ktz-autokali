@@ -1,0 +1,39 @@
+description: |-
+  Проверка стандартных аутентификационных данных ssh с помощью msf
+
+author: vinzekatze
+tags:
+  - 22
+  - ssh
+  - default
+  - credentionals
+  - msfconsole
+  - metasploit
+
+arguments:
+  target:
+    multiple: true
+    description: цели для сканирования (например, в формате 'ip:порт')
+
+mode:
+  format:
+    target: >-
+      tcp://{!r}
+
+file_1:
+  path: wordlists/ssh/creds.txt
+  description: словарь часто встречаемых пар логинов и паролей
+  replacer: >-
+    #credfile#
+
+shell: msfconsole
+script: >-
+  use auxiliary/scanner/ssh/ssh_login;
+  set ANONYMOUS_LOGIN true;
+  set BLANK_PASSWORDS true;
+  set CreateSession false;
+  set RHOSTS #target#;
+  set USERPASS_FILE #credfile#;
+  set VERBOSE true;
+  run;
+  exit;

@@ -66,7 +66,7 @@ script: |-
       data_json = json.loads(response.read())
       ciphers[key]['status'] = data_json[key]['security']
       ciphers[key]['link'] = f'https://ciphersuite.info/cs/{key}/'
-      cipher_textline = '"{}";"{}";"{}";"{}"'.format(ciphers[key]['status'], key, ' '.join(ciphers[key]['sites']), ciphers[key]['link'])
+      cipher_textline = '"{}";"{}";"{}";"{}"'.format(ciphers[key]['status'], key, '\n'.join(ciphers[key]['sites']), ciphers[key]['link'])
       out_list.append(cipher_textline)
       print(cipher_textline)
 

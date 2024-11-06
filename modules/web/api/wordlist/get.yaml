@@ -1,0 +1,97 @@
+description: >-
+  Возвращает содержимое словарей для брута api
+
+author: vinzekatze
+tags:
+  - swagger
+  - seclist
+  - wordlists
+  - actions
+  - objects
+
+arguments:
+  w:
+    default:
+    description: пути/имена словарей, из которых будут извлечены строки (см. таблицу "used files")
+    replacer: '#wordlist#'
+    metavar: WORDLIST
+    multiple: true
+  
+  o:
+    default:
+      -
+    metavar: FILE
+    description: записать вывод в файл
+  
+  head:
+    default:
+      -
+      - >-
+         | head
+    description: использовать только первые 10 строк словаря 
+
+  lcase:
+    default:
+      -
+      - >-
+         | tr '[:upper:]' '[:lower:]'
+    description: меняет регистр всех букв на нижний
+  
+  rand:
+    default:
+      - 
+      - ' | sort -R'
+    description: перетасовать в случайном порядке
+
+  rgx:
+    default:
+      -
+    metavar: REGEX
+    multiple: true
+    description: использовать grep -e чтобы найти строки с соответсвием
+
+  irgx:
+    default:
+      -
+    metavar: REGEX
+    multiple: true
+    description: инвертированный rgx
+  
+
+file_1:
+  path: wordlists/web/api/rest/basic.txt
+  description: >-
+    базовый словарь из отдельных слов (имя: "bsc")
+  replacer: '#bsc#'
+
+file_2:
+  path: wordlists/web/api/rest/swagger-clean.txt
+  description: >-
+    отчищенный словарь swagger-wordlist, 800K строк (имя: "swg")
+  replacer: '#swg#'
+
+file_3:
+  path: wordlists/web/api/rest/swagger-raw.txt
+  description: >-
+    оригинальный словарь swagger-wordlist, 900K строк (имя: "swg-raw")
+  replacer: '#swg-raw#'
+
+mode:
+  replace:
+    w:
+      bsc: '#bsc#'
+      swg: '#swg#'
+      swg-raw: '#swg-raw#'
+  format:
+    rgx: '-e {0!r}'
+    irgx: '-e {0!r}'
+    o: ' > {0!r}; echo "Done" >&2'
+  pformat:
+    rgx: ' | grep {0}'
+    irgx: ' | grep -v {0}'
+
+
+shell: bash
+script: >-
+  echo "Processing..." >&2;
+  cat #wordlist##head##rgx##irgx##lcase# | sort | uniq#rand##o#

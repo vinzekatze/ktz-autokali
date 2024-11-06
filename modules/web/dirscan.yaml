@@ -1,0 +1,133 @@
+arguments:
+  urls:
+    default:
+    multiple: true
+    description: URL сайтов
+    replacer: '#url#'
+  t:
+    default: 10
+    metavar: INT
+    description: количество потоков
+    replacer: '#threads#'
+  u:
+    default: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:108.0) Gecko/20100101 Firefox/108.0'
+    description: User Agent
+    replacer: '#useragent#'
+
+file_1:
+  path: wordlists/web/dirbrute/basic/dirsearch.txt
+  description: стандартный словарь dirsearch
+  replacer: '#dirsearch#'
+
+file_2:
+  path: wordlists/web/dirbrute/basic/quickhits.txt
+  description: quickhits из SecLists
+  replacer: '#quickhits#'
+
+file_3:
+  path: wordlists/web/dirbrute/basic/directory-list-2.3-small.txt
+  description: directory-list-2.3-small из SecLists
+  replacer: '#directory-list#'
+
+file_4:
+  path: wordlists/web/dirbrute/swagger.txt
+  description: swagger директории из SecLists
+  replacer: '#swagger#'
+
+file_5:
+  path: wordlists/web/dirbrute/nginx.txt
+  description: словарь для nginx
+  replacer: '#nginx#'
+
+file_6:
+  path: wordlists/web/dirbrute/apache.txt
+  description: словарь для apache
+  replacer: '#apache#'
+
+file_7:
+  path: wordlists/web/dirbrute/iis.txt
+  description: словарь для iis
+  replacer: '#iis#'
+
+file_8:
+  path: wordlists/web/dirbrute/oracle.txt
+  description: словарь для oracle
+  replacer: '#oracle#'
+
+file_9:
+  path: wordlists/web/dirbrute/tomcat.txt
+  description: словарь для tomcat
+  replacer: '#tomcat#'
+
+file_10:
+  path: wordlists/web/dirbrute/php.txt
+  description: словарь для php
+  replacer: '#php#'
+
+file_11:
+  path: wordlists/web/dirbrute/cms/django.txt
+  description: словарь для django
+  replacer: '#django#'
+
+file_12:
+  path: wordlists/web/dirbrute/cms/sharepoint.txt
+  description: словарь для sharepoint
+  replacer: '#sharepoint#'
+
+
+mode:
+  loop: urls
+  format:
+    urls: '{0!r}'
+    t: '{0!r}'
+    u: '{0!r}'
+
+shell: bash
+script: |-
+  url=#url#
+  threads=#threads#
+  useragent=#useragent#
+
+  # Подготовка
+  scanmarker="$(date +'%Y%m%d_%H%M%S')"
+  dirlists='#dirsearch#,#quickhits#'
+  dirname="$(echo $url | grep -soP '((?<=^http:\/\/)|(?<=^https:\/\/))(.)(.*?)(?=([\?&#]|$|\/$))' | sed -e 's/[^A-Za-z0-9._-]/_/g').$(echo $url | cut -d ':' -f 1)"
+  
+  echo "Target: $url"
+  mkdir -p ./$dirname && echo "Loot:   $(realpath ./$dirname)" || exit
+  echo
+  
+  # Сканирование с помощью whatweb
+  echo "WhatWeb scanning..."
+  whatweb_out=$(whatweb --aggression 4 --max-threads="$threads" --color='never' --user-agent="$useragent" $url)
+  echo $whatweb_out > ./$dirname/result-whatweb-$scanmarker.txt
+  
+  # Подключение специфических словарей по результатам whatweb
+  echo $whatweb_out | grep -qis nginx && { dirlists="$dirlists,#nginx#"; echo "nginx detected" ; }
+  echo $whatweb_out | grep -qis apache && { dirlists="$dirlists,#apache#"; echo "apache detected" ; }
+  echo $whatweb_out | grep -qis iis && { dirlists="$dirlists,#iis#"; echo "iis detected" ; }
+  echo $whatweb_out | grep -qis oracle && { dirlists="$dirlists,#oracle#"; echo "oracle detected" ; }
+  echo $whatweb_out | grep -qis tomcat && { dirlists="$dirlists,#tomcat#"; echo "tomcat detected" ; }
+  echo $whatweb_out | grep -qis php && { dirlists="$dirlists,#php#"; echo "php detected" ; }
+  echo $whatweb_out | grep -qis django && { dirlists="$dirlists,#django#"; echo "django detected" ; }
+  echo $whatweb_out | grep -qis sharepoint && { dirlists="$dirlists,#sharepoint#"; echo "sharepoint detected" ; }
+
+  echo
+  # Краулинг сайта и получения индивидуального словаря
+  echo "Spidering..."
+  docker run --rm projectdiscovery/katana:latest -silent -concurrency $threads -parallelism $threads -js-crawl -jsluice -system-chrome -headless -u $url |
+  tee ./$dirname/result-spidering-$scanmarker.txt |
+  grep -soP '((?=^http:\/\/)|(?=^https:\/\/))(?<=^)(.)(.*?)(?=([\?&#]|$|\/$))' | sed 's/\/$//' | sed 's/^http:\/\/[^/]*\///;s/^https:\/\/[^/]*\///' | grep -svP '^http.?:\/\/' | tr '/' '\n' | sort | uniq > ./$dirname/wordlist_spidering-$scanmarker.txt
+  
+  wordscount=$(cat ./$dirname/wordlist_spidering-$scanmarker.txt | wc -l) && dirlists="$dirlists,$(realpath ./$dirname/wordlist_spidering-$scanmarker.txt)"
+  echo "$wordscount directory words found"
+  echo
+
+  # Брут директорий
+  echo "Directory bruteforcing..."
+  echo "Used wordlists:"
+  for i in $(echo "$dirlists" | tr ',' ' '); do echo "    $i"; done
+  echo
+  dirsearch --no-color --quiet-mode --timeout=10 --retries=3 --full-url --include-status 200-208,226,400,401,403,405,500-511 --threads=$threads --user-agent=$useragent --recursive --max-recursion-depth=4 --wordlists=$dirlists --url=$url --output $(realpath ./$dirname/result-dirsearch-$scanmarker.txt) 2>/dev/null
+  echo
+  echo Done!

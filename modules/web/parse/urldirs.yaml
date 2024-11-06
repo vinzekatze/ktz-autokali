@@ -1,0 +1,59 @@
+description: >-
+  Выделяет из URL-адресов отдельные именя директорий и файлов
+author: vinzekatze
+tags:
+  - url
+  - directories
+  - extract
+  - parser
+
+arguments:
+  f:
+    default:
+    multiple: true
+    description: файлы со списками URL для обработки
+    replacer: '#file#'
+    metavar: FILE
+  b:
+    default:
+    multiple: true
+    description: базовые URL-пути
+    replacer: '#basepath#'
+    metavar: BASEURL
+  o:
+    default:
+      -
+    replacer: '#output#'
+    metavar: FILE
+    description: сохранить результаты в файл
+
+  rgx:
+    default:
+      -
+    metavar: REGEX
+    multiple: true
+    description: использовать grep -e чтобы найти строки с соответсвием
+
+  irgx:
+    default:
+      -
+    metavar: REGEX
+    multiple: true
+    description: инвертированный rgx
+
+mode:
+  format:
+    f: '{0!r}'
+    b: '{0!r}'
+    o: ' > {0!r}'
+    rgx: '-e {0!r}'
+    irgx: '-e {0!r}'
+  pformat:
+    rgx: ' | grep {0}'
+    irgx: ' | grep -v {0}'
+
+shell: bash
+script: >-
+  for basepath in #basepath#; do
+  cat #file# | grep -soP "(?<=$basepath)(.*?)(?=([\?&#]|$|\/$))"; done | sort | uniq |
+  tr '/' '\n' | sort | uniq#rgx##irgx##output#
