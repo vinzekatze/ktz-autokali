@@ -126,11 +126,16 @@ script: |-
   echo "$wordscount directory words found"
   echo
 
+  # Статус словарей
+  echo "Prepared wordlists:"
+  for wlist in $(echo $dirlists | tr ',' ' '); do echo "$(basename $wlist) [$(cat $wlist | wc -l)]"; done
+  echo "---"
+  echo "Total uniq lines: $(cat $(echo $dirlists | tr ',' ' ') | sort | uniq | wc -l)"
+  echo 
+
   # Брут директорий
   echo "Directory bruteforcing..."
-  echo "Used wordlists:"
-  for i in $(echo "$dirlists" | tr ',' ' '); do echo "    $i"; done
-  echo
-  dirsearch --no-color --quiet-mode --timeout=10 --retries=3 --full-url --include-status 200-208,226,400,401,403,405,500-511 --threads=$threads --user-agent=$useragent --recursive --max-recursion-depth=4 --wordlists=$dirlists --url=$url --output $(realpath ./$dirname/result-dirsearch-$scanmarker.txt) 2>/dev/null
+  dirsearch --no-color --quiet-mode --timeout=10 --retries=3 --full-url --include-status 200-208,226,400,401,403,405,500-511 --threads=$threads --user-agent=$useragent --recursive --max-recursion-depth=4 --wordlists=$dirlists --url=$url 2>/dev/null | tee ./$dirname/result-dirsearch-$scanmarker.txt
   echo
   echo Done!
+  echo
