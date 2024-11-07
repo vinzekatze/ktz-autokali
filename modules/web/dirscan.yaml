@@ -40,6 +40,7 @@ arguments:
     default: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:108.0) Gecko/20100101 Firefox/108.0'
     description: User-Agent
     replacer: '#useragent#'
+    metavar: STRING
   
   add-wordlist:
     default:
@@ -171,7 +172,7 @@ script: |-
   echo -e "\e[1;92mSpidering...\e[0m"
   docker run --rm projectdiscovery/katana:latest -silent -concurrency $threads -parallelism $threads -js-crawl -jsluice -system-chrome -headless -u $url |
   tee ./$dirname/result-spidering-$scanmarker.txt |
-  grep -soP '((?=^http:\/\/)|(?=^https:\/\/))(?<=^)(.)(.*?)(?=([\?&#]|$|\/$))' | sed 's/\/$//' | sed 's/^http:\/\/[^/]*\///;s/^https:\/\/[^/]*\///' | grep -svP '^http.?:\/\/' | tr '/' '\n' | sort | uniq > ./$dirname/wordlist_spidering-$scanmarker.txt
+  grep -soP '((?=^http:\/\/)|(?=^https:\/\/))(?<=^)(.)(.*?)(?=([\?&#]|$|\/$))' | sed 's/\/$//' | sed 's/^http:\/\/[^/]*\///;s/^https:\/\/[^/]*\///' | grep -svP '^http.?:\/\/' | tr '/' '\n' | sort | uniq > ./$dirname/wordlist-spidering-$scanmarker.txt
   
   wordscount=$(cat ./$dirname/wordlist_spidering-$scanmarker.txt | wc -l) && dirlists="$dirlists,$(realpath ./$dirname/wordlist_spidering-$scanmarker.txt)"
   echo "$wordscount directory words found"

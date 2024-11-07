@@ -28,13 +28,12 @@ arguments:
   p:
     default:
       - 'A'
-      - 'V'
       - 'S'
       - 'I'
       - 'P'
       - 'N'
     description: |-
-      настройка вывода: 'A' - полный сокет, 'V' - полный сокет с версиями, 'S' - ip:порт, 'I' - ip адреса, 'P' - номера портов, 'N' - названия сервисов
+      настройка вывода: 'A' - полный сокет, 'S' - ip:порт, 'I' - ip адреса, 'P' - номера портов, 'N' - названия сервисов
   d:
     metavar: DELIM
     default:
@@ -73,9 +72,7 @@ mode:
   replace:
     p:
       A: >-
-        -v "../../address/@addr" -o ":" -v "@portid" -o "/" -v "@protocol" -o " " -v "service/@name" --nl #f# | sort -V | uniq
-      V: >-
-        -v "../../address/@addr" -o ":" -v "@portid" -o "/" -v "@protocol" -o " " -v "service/@name" -o " [" -v "service/@product" -o " " -v "service/@version" -o "]"  --nl #f# | sort -V | uniq
+        -v "../../address/@addr" -o ":" -v "@portid" -o "/" -v "@protocol" -o " " -v "service/@name" -o " [" -v "service/@product" -o "][" -v "service/@version" -o "]"  --nl #f# | sort -V | uniq | sed 's/\s\?\[\]//g'
       S: >-
         -v "../../address/@addr" -o ":" -v "@portid" --nl #f# | sort -V | uniq
       I: >-
