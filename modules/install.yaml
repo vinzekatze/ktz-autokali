@@ -86,9 +86,9 @@ item_5:
 item_6:
   description: установка python-пакетов (PIPX)
   script: >-
-    pipx ensurepath;
+    sudo pipx ensurepath --global;
     for py_pack in $(cat "#python_pipx_installs#"); do
-    pipx install $py_pack &&
+    sudo pipx install $py_pack --global &&
     echo -e "\e[1;92m+++ [PIPX] SUCCESSFULLY INSTALLED: $py_pack\e[0m" ||
     echo -e "\e[1;91m+++ [PIPX] INSTALLATION ERROR: $py_pack\e[0m";
     done

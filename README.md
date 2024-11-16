@@ -36,7 +36,7 @@ sudo bshm library use ktz-autokali
 
 ```
 bshm use install --item 1-8
-sudo bshm use install --item 6,8
+sudo bshm use install --item 8
 ```
 После установки рекомендуется перелогиниться из-за docker
 
