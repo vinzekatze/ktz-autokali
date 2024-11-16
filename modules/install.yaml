@@ -97,3 +97,12 @@ item_7:
   description: скриптовые установки
   script: >-
     recon-ng -r #recon-ng_installs#
+
+item_8:
+  description: автонастройка bashmator
+  script: |-
+    bshm shell add /usr/bin/bash
+    bshm shell add /usr/bin/python3
+    bshm shell add /usr/bin/node --popen-args '["-e"]'
+    bshm shell add /usr/bin/msfconsole --name msfconsole --popen-args '["-q", "-x"]'
+    bshm library scan -f

@@ -10,6 +10,8 @@ libimage-exiftool-perl
 libxml2-utils
 metasploit-framework
 nmap
+nodejs
+npm
 patator
 proxychains4
 python3-pip

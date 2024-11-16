@@ -1,0 +1,71 @@
+description: >-
+  Возвращает словарь для перечисления виртуальных хостов
+
+author: vinzekatze
+tags:
+  - vhost
+  - seclist
+  - wordlists
+
+arguments:
+  d:
+    default:
+    description: доменное имя для подстановки
+    replacer: '#domain#'
+    metavar: DOMAIN
+  
+  o:
+    default:
+      -
+    metavar: FILE
+    description: записать вывод в файл
+  
+  head:
+    default:
+      -
+      - >-
+         | head
+    description: использовать только первые 10 строк словаря 
+  
+  rand:
+    default:
+      - 
+      - ' | sort -R'
+    description: перетасовать в случайном порядке
+
+  rgx:
+    default:
+      -
+    metavar: REGEX
+    multiple: true
+    description: использовать grep -e чтобы найти строки с соответсвием
+
+  irgx:
+    default:
+      -
+    metavar: REGEX
+    multiple: true
+    description: инвертированный rgx
+  
+
+file_1:
+  path: wordlists/web/vhost/virtual-host-wordlist.txt
+  description: >-
+    словарь на 556к слов
+  replacer: '#vhost#'
+
+mode:
+  format:
+    d: '{0!r}'
+    rgx: '-e {0!r}'
+    irgx: '-e {0!r}'
+    o: ' > {0!r}; echo "Done" >&2'
+  pformat:
+    rgx: ' | grep {0}'
+    irgx: ' | grep -v {0}'
+
+
+shell: bash
+script: >-
+  echo "Processing..." >&2;
+  cat #vhost# | sed 's\%s\'#domain#'\' #head##rgx##irgx# | sort | uniq#rand##o#

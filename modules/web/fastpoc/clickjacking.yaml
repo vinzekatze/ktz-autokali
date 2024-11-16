@@ -1,0 +1,39 @@
+description: >-
+  Создает базовый Clickjacking PoC для указанного URL
+
+author: vinzekatze
+tags:
+  - client
+  - vulnerability
+  - clickjacking
+
+arguments:
+  url:
+    default:
+    description: URL страницы для отображения в iframe
+    replacer: '#url#'
+    
+  
+  o:
+    default: poc-clickjacking
+    description: имя выходного html-файла
+    replacer: '#outfile#'
+    metavar: FILE
+
+file_1:
+  path: attcs/web/fastvuln/clickjacking.html
+  description: Clickjacking Fast PoC
+  replacer: '#clickjacking#'
+
+mode:
+  format:
+    url: '{0!r}'
+    o: '{0!r}'
+
+shell: bash
+script: >-
+  url=#url#; filename=#outfile#.html;
+  sed "s,__TARGET_URL__,$url,g" '#clickjacking#' > $filename;
+  echo "Clickjacking Fast PoC for '$url' created"; echo;
+  echo "Link to file for browser:";
+  echo "file://$(realpath $filename)"; echo

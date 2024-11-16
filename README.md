@@ -6,26 +6,37 @@
 
 ## Установка
 
+Устанавливать bashmator рекомендуется через pipx.
+
+```
+# Установка pipx
+sudo apt update
+sudo apt install pipx
+sudo pipx ensurepath --global
+
+# Установка bashmator
+sudo pipx install bashmator --global
+```
+
 Скачать и добавить библиотеку:
 
 ```
 git clone https://github.com/vinzekatze/ktz-autokali
+
+# для пользователя
 bshm library add ktz-autokali
 bshm library use ktz-autokali
+
+# для рута
+sudo bshm library add ktz-autokali
+sudo bshm library use ktz-autokali
 ```
 
-Добавить оболочки, если не добавлены, пересканировать библиотеку:
-```
-bshm shell add /usr/bin/bash
-bshm shell add /usr/bin/python3
-bshm shell add /usr/bin/msfconsole --name msfconsole --popen-args '["-q", "-x"]'
-bshm library scan -f
-```
-
-Установить все необходимое:
+Установить все необходимое и добавить оболочки в `bshm`:
 
 ```
-bshm use install --item 1-7
+bshm use install --item 1-8
+sudo bshm use install --item 6,8
 ```
 После установки рекомендуется перелогиниться из-за docker
 

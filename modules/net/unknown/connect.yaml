@@ -1,0 +1,57 @@
+description: >-
+  Попытка подключения к сокету с помощью разных протоколов
+
+author: vinzekatze
+tags:
+  - unknown
+  - tcpwrapped
+  - connection
+
+arguments:
+  target:
+    default:
+    replacer: '#target#'
+    multiple: true
+    description: цели в формате ip:port
+    regex: >-
+      ^((25[0-5]|(2[0-4]|1\d|[1-9]|)\d)\.?\b){4}:([1-9][0-9]{0,3}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5])$
+
+shell: bash
+mode:
+  loop: target
+  format:
+    target: '{0!r}'
+
+script: >-
+  target=#target#;
+  echo -e "\e[1;92mTCP connection to $target...\e[0m";
+  echo -e 'hello\n' | ncat -v -w 5 -i 5 $(echo $target | cut -f1 -d:) $(echo $target | cut -f2 -d:);
+  echo;
+  echo -e "\e[1;92mTCP SSL connection to $target...\e[0m";
+  echo -e 'hello\n' | ncat -v --ssl -w 5 -i 5 $(echo $target | cut -f1 -d:) $(echo $target | cut -f2 -d:);
+  echo;
+  echo -e "\e[1;92mHTTP connection to $target...\e[0m";
+  curl -v --max-time 5 -kis --http0.9 "http://$target";
+  echo;
+  echo -e "\e[1;92mHTTPS connection to $target...\e[0m";
+  curl -v --max-time 5 -kis --http0.9 "https://$target";
+  echo;
+  echo -e "\e[1;92mUDP connection to $target...\e[0m";
+  echo -e 'hello\n' | ncat -v --udp -w 5 -i 5 $(echo $target | cut -f1 -d:) $(echo $target | cut -f2 -d:);
+  echo;
+  echo -e "\e[1;92mUDP SSL connection to $target...\e[0m";
+  echo -e 'hello\n' | ncat -v --udp --ssl -w 5 -i 5 $(echo $target | cut -f1 -d:) $(echo $target | cut -f2 -d:);
+  echo;
+  echo -e "\e[1;92mSCTP connection to $target...\e[0m";
+  echo -e 'hello\n' | ncat -v --sctp -w 5 -i 5 $(echo $target | cut -f1 -d:) $(echo $target | cut -f2 -d:);
+  echo;
+  echo -e "\e[1;92mSCTP SSL connection to $target...\e[0m";
+  echo -e 'hello\n' | ncat -v --sctp --ssl -w 5 -i 5 $(echo $target | cut -f1 -d:) $(echo $target | cut -f2 -d:);
+  echo;
+
+#item_2:
+#  description: сканирование с помощью nmap
+#  script: >-
+#    target=#target#; nmap -v -Pn -sS -sU -sV -sC -A --reason --script="+(safe or default) and not broadcast" -p$(echo $target | cut -f2 -d:) $(echo $target | cut -f1 -d:)
+# ????
+# sudo nmap -Pn -sS -sU -sV -sC -f --script=ssl-cert,fingerprint-strings,banner,vuln

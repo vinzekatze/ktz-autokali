@@ -1,0 +1,90 @@
+description: >-
+  Проверяет существование строки в словаре и дополняет его
+
+author: vinekatze
+tags:
+  - swagger
+  - seclist
+  - wordlists
+  - actions
+  - objects
+
+arguments:
+  lcase:
+    default:
+      - >-
+        newword="$(tr '[:lower:]' '[:upper:]' <<< ${newword:0:1})${newword:1}"
+      - >-
+        newword="$(tr '[:upper:]' '[:lower:]' <<< ${newword})" 
+    description: не менять регистр первой буквы нового слова
+    replacer: '#lcase#'
+  add:
+    default:
+      - >-
+        echo -e "\e[1;94m$newword\e[0m is new word for $(basename #wordlist#)"
+      - >-
+        { echo; echo -n "$newword"; } >> #wordlist# ; echo -e "\e[1;92m$newword\e[0m added to $(basename #wordlist#)"  
+    description: записать новые слова в выбранный словарь
+
+  w:
+    default:
+    description: путь/имя словаря, в который будут добавлены строки (см. таблицу "used files")
+    replacer: '#wordlist#'
+    metavar: WORDLIST
+  
+  s:
+    default:
+    multiple: true
+    description: новые слова и/или пути до файлов с ними
+    replacer: '#word#'
+    metavar: STRING/FILE
+
+  rgx:
+    default:
+      -
+    metavar: REGEX
+    multiple: true
+    description: использовать grep -e чтобы найти строки с соответсвием
+
+  irgx:
+    default:
+      -
+    metavar: REGEX
+    multiple: true
+    description: инвертированный rgx
+
+file_1:
+  path: wordlists/web/api/rest/basic.txt
+  description: >-
+    базовый словарь из отдельных слов (имя: "bsc")
+  replacer: '#bsc#'
+
+file_2:
+  path: wordlists/web/api/rest/swagger-clean.txt
+  description: >-
+    отчищенный словарь swagger-wordlist, 800K строк (имя: "swg")
+  replacer: '#swg#'
+
+mode:
+  loop: s
+  format:
+    rgx: '-e {0!r}'
+    irgx: '-e {0!r}'
+    s: '{0!r}'
+  replace:
+    w:
+      bsc: '#bsc#'
+      swg: '#swg#'
+  pformat:
+    rgx: ' | grep {0}'
+    irgx: ' | grep -v {0}'
+
+shell: bash
+script: >-
+  for newword in $({ cat #word# 2>/dev/null || echo #word# ; }); do
+  { echo $newword#rgx##irgx# >/dev/null ; } && {
+  { #lcase#; cat #wordlist# | grep -ixs $newword 1>/dev/null ; } &&
+  echo -e "\e[1;90m$newword\e[0m already exists in $(basename #wordlist#)" ||
+  { #add# ; } ;
+  } ;
+  done
