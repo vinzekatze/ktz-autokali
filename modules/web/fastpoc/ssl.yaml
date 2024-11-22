@@ -19,6 +19,7 @@ arguments:
     default:
       -
     replacer: __OUT__
+    metavar: FILE
     description: указать путь до файла, в который отдельно будет записана сводная csv таблица с шифрами
 
 shell: python3
