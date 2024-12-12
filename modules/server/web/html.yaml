@@ -1,7 +1,7 @@
 description: |-
-  Поднимает простой node.js сервер, логирует входящие запросы и отдает файлы из директории запуска по их именам как html-страницы.
+  Node.js сервер, отдающий файлы из директории запуска по их именам как html-страницы.
   
-  Если файл не обнаружен, отправляет пользователю редирект на выбранный URL.
+  Если файл не обнаружен, отправляет пользователю редирект на заданный URL.
 
 author: vinzekatze
 tags:
@@ -25,6 +25,21 @@ arguments:
     default: 'https://yandex.ru'
     description: URL сайта для редиректа
     replacer: '#redirect#'
+    metavar: URL
+  
+  log:
+    default:
+      -
+      - |-
+        var data = {from_ip: req.socket.remoteAddress,
+                    url: req.url,
+                    date: Date(),
+                    headers: req.headers,
+                    body: req.body};
+          console.log(data);
+          console.log();
+    description: показывать полный лог
+    replacer: '#logging#'  
 
 mode:
   format:
@@ -55,18 +70,16 @@ script: |-
       res.writeHeader(200, {"Content-Type": "text/html; charset=utf-8"});  
       res.write(fs.readFileSync('.' + req.url, 'utf8'));
       res.end();
+      console.log(`File ${req.url} was sent to ${req.socket.remoteAddress}`)
     } else {
-      res.writeHeader(302, { 'Location': 'http://ca.vtbsd.ru' + req.url});
+      res.writeHeader(302, { 'Location': redirect + req.url});
       res.end();
     };
-
-    var data = {from_ip: req.socket.remoteAddress,
-                url: req.url,
-                headers: req.headers,
-                body: req.body}
-    console.log(data)
+    #logging#
   })
 
   server.listen(port, hostname, () => {
     console.log(`Server running at http://${hostname}:${port}/`);
+    console.log(`Redirect URL: ${redirect}`);
+    console.log();
   })

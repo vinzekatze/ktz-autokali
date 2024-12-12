@@ -1,0 +1,80 @@
+description: |-
+  Node.js сервер, декодирующий (base64) значение указанного параметра и перенаправляющий запрос на заданный URL
+
+author: vinzekatze
+tags:
+  - node.js
+  - redirect
+  - server
+
+arguments:
+  port:
+    default:
+    description: порт сервера
+    replacer: '#port#'
+    regex: '^([1-9][0-9]{0,3}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5])$'
+  p:
+    default: payload
+    description: имя параметра, откуда будет прочтен URL редиректа
+    replacer: '#payload-param#'
+    metavar: PARAMETER
+  i:
+    default: '0.0.0.0'
+    description: IP старта сервера
+    replacer: '#ip#'
+    metavar: IP
+    regex: '^((25[0-5]|(2[0-4]|1\d|[1-9]|)\d)\.?\b){4}$'
+  r:
+    default: 'https://yandex.ru'
+    description: URL сайта для редиректа
+    replacer: '#redirect#'
+    metavar: URL
+  
+  log:
+    default:
+      -
+      - |-
+        var data = {from_ip: req.socket.remoteAddress,
+                    url: req.url,
+                    date: Date(),
+                    headers: req.headers,
+                    body: req.body};
+          console.log(data);
+    description: показывать полный лог
+    replacer: '#logging#'  
+
+mode:
+  format:
+    i: '{0!r}'
+    r: '{0!r}'
+
+shell: node
+script: |-
+  const http = require('http')
+  const url = require('url');
+  const hostname = #ip#
+  const port = #port#
+  const redirect = #redirect#
+
+  const server = http.createServer((req, res) => {
+    url_parts = url.parse(req.url, true);
+    query = url_parts.query;
+    param_data = query.#payload-param#;
+    if (typeof param_data !== "undefined") {
+      buff = Buffer.from(query.#payload-param#, 'base64')
+      console.log(`Data received from ${req.socket.remoteAddress}:\n${buff.toString('ascii')}`);
+    };
+    res.writeHeader(302, { 'Location': redirect});
+    res.end();
+    #logging#
+    console.log();
+  })
+
+  server.listen(port, hostname, () => {
+    console.log(`Server running at http://${hostname}:${port}/`);
+    console.log();
+    console.log(`Redirect URL: ${redirect}`);
+    console.log(`Parameter:    #payload-param#`);
+    console.log(`Decoding:     base64`);
+    console.log();
+  })
