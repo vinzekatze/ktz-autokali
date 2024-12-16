@@ -8,7 +8,7 @@ tags:
   - xss
   - payload
   - generator
-  - cookie
+  - fetch
 
 arguments:
   server-url:
@@ -24,9 +24,9 @@ arguments:
     replacer: '#fetch_url#'
 
   o:
-    default: '{"credentials": "include","method": "GET","mode": "cors"}'
+    default: '{"credentials":"include","method":"GET","mode":"cors"}'
     description: >-
-      URL отслеживающего сервера (например: 'http://pentester.site')
+      опции fetch-запроса
     replacer: '#fetch_options#'
 
   a:
@@ -49,7 +49,7 @@ arguments:
 
   num-param:
     default: number
-    description: GET-параметр,
+    description: GET-параметр, отвечающий за нумерацию отправляемой части данных
     metavar: PARAMETER
     replacer: '#num-param#'
 

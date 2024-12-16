@@ -13,9 +13,14 @@ arguments:
     description: порт сервера
     replacer: '#port#'
     regex: '^([1-9][0-9]{0,3}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5])$'
+  n:
+    default: number
+    description: имя параметра, отвечающего за нумерацию полученных данных
+    replacer: '#num-param#'
+    metavar: PARAMETER
   p:
     default: payload
-    description: имя параметра, откуда будет прочтен URL редиректа
+    description: имя параметра, данные из которого будут декодированы
     replacer: '#payload-param#'
     metavar: PARAMETER
   i:
@@ -71,7 +76,8 @@ script: |-
     param_data = query.#payload-param#;
     if (typeof param_data !== "undefined") {
       buff = Buffer.from(query.#payload-param#, 'base64')
-      console.log(`Data received from ${req.socket.remoteAddress}:\n${buff.toString('ascii')}`);
+      num = query.#num-param# ?? 0
+      console.log(`Data part ${num} received from ${req.socket.remoteAddress}:\n${buff.toString('ascii')}`);
     };
     res.writeHeader(302, { 'Location': redirect});
     setTimeout(() => {res.end()}, delay);
