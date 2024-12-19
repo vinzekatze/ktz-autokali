@@ -1,10 +1,10 @@
 description: |-
-  Проверка стандартных аутентификационных данных ssh с помощью msf
+  Проверка стандартных аутентификационных данных FTP с помощью MSF
 
 author: vinzekatze
 tags:
-  - 22
-  - ssh
+  - 21
+  - ftp
   - default
   - credentionals
   - msfconsole
@@ -34,7 +34,7 @@ mode:
       tcp://{!r}
 
 file_1:
-  path: wordlists/ssh/creds.txt
+  path: wordlists/ftp/creds.txt
   description: >-
     базовый словарь
   replacer: >-
@@ -42,14 +42,13 @@ file_1:
 
 shell: msfconsole
 script: >-
-  cat '#credfile#' #wordlists#|sort|uniq>./sshwordlist.tmp.txt;
-  use auxiliary/scanner/ssh/ssh_login;
+  cat '#credfile#' #wordlists#|sort|uniq>./ftpwordlist.tmp.txt;
+  use auxiliary/scanner/ftp/ftp_login;
   set ANONYMOUS_LOGIN true;
   set BLANK_PASSWORDS true;
   set USER_AS_PASS true;
-  set CreateSession false;
   set RHOSTS #target#;
-  set USERPASS_FILE ./sshwordlist.tmp.txt;
+  set USERPASS_FILE ./ftpwordlist.tmp.txt;
   set VERBOSE true;
   run;
   rm ./ftpwordlist.tmp.txt;

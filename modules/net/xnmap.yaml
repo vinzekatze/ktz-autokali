@@ -89,7 +89,7 @@ mode:
         - ':'
   format:
     d: >-
-        | paste -sd {!r}
+        | awk -v d={0!r} '{{s=(NR==1?s:s d)$0}}END{{print s}}'
     f: '{!r}'
     s: '@portid={0!r} or service/@name={0!r}'
     addr: '#hard#{!r})'
