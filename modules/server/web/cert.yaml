@@ -1,0 +1,32 @@
+description: |-
+  Создает пару самоподписанного сертификата и приватного ключа для работы скриптов по https.
+
+  В Common Name лучше указать полное доменное имя.
+author: internet
+tags:
+  - ssl
+  - cert
+  - key
+  - selfsigned
+
+arguments:
+  cert:
+    default: server.cert
+    description: путь до сертификата .cert
+    metavar: 'FILE'
+    replacer: '#cert#'
+  
+  key:
+    default: server.key
+    description: путь до приватного ключа .key
+    metavar: 'FILE'
+    replacer: '#key#'
+
+mode:
+  format:
+    cert: '{0!r}'
+    key: '{0!r}'
+
+shell: bash
+script: >-
+  openssl req -nodes -new -x509 -keyout #key# -out #cert#

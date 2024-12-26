@@ -35,8 +35,8 @@ sudo bshm library use ktz-autokali
 Установить все необходимое и добавить оболочки в `bshm`:
 
 ```
-bshm use install --item 1-8
-sudo bshm use install --item 8
+bshm use install --item 1-9
+sudo bshm use install --item 9
 ```
 После установки рекомендуется перелогиниться из-за docker
 

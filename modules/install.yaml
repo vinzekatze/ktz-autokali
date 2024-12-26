@@ -28,6 +28,12 @@ file_4:
   description: список python-пакетов (pipx)
 
 file_5:
+  path: install/npm_installs.txt
+  replacer: >-
+    #nodejs_installs#
+  description: список node.js-пакетов (npm)
+
+file_6:
   path: install/recon-ng_cmd.txt
   replacer: >-
     #recon-ng_installs#
@@ -94,11 +100,20 @@ item_6:
     done
 
 item_7:
+  description: установка node.js-пакетов (NPM)
+  script: >-
+    for npm_pack in $(cat "#nodejs_installs#"); do
+    sudo npm install -g $npm_pack &&
+    echo -e "\e[1;92m+++ [NPM] SUCCESSFULLY INSTALLED: $npm_pack\e[0m" ||
+    echo -e "\e[1;91m+++ [NPM] INSTALLATION ERROR: $npm_pack\e[0m";
+    done
+
+item_8:
   description: скриптовые установки
   script: >-
     recon-ng -r #recon-ng_installs#
 
-item_8:
+item_9:
   description: автонастройка bashmator
   script: |-
     bshm shell add /usr/bin/bash
