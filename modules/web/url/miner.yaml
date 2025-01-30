@@ -1,0 +1,72 @@
+description: |-
+  Ищет URL в содержимом страниц и возвращает те, что существуют
+  
+  PS: пока временно на баше
+author: vinzekatze
+tags:
+  - link
+  - finder
+
+arguments:
+  urls-list:
+    multiple: true
+    description: целевые url или файлы, их содержащие
+    replacer: '#url#'
+  
+  b:
+    default:
+      - 
+    description: задать базовый URL для проверки
+    replacer: '#basepath#'
+    metavar: url
+  
+  p:
+    default:
+      -
+    description: 'задать прокси'
+    metavar: 'proto://host:port'
+
+  o:
+    default:
+      -
+    description: 'записывать результаты в файл (дополняет)'
+    metavar: path
+  jq:
+    default:
+      -
+      - '| jq -Mc 2>/dev/null'
+    description: парсить как json
+
+mode:
+  format:
+    urls-list: '{0!r}'
+    p: '--proxy {0!r}'
+    o: '| tee -a {0!r}'
+    b: '{0!r}'
+  replace:
+    b:
+      auto: >-
+        $(echo $targ | grep -oP '(?<=^)(htt(p|ps)\:\/\/[\d\w\-\_\.]+?)(?=\/|$)')
+
+
+shell: bash
+script: >-
+  targlist=$(cat #url# 2>/dev/null || echo #url#);
+  fulllinks='';
+  for targ in $targlist; do
+    checkurl=#basepath#;
+    if [ -z "${checkurl}" ]; 
+      then targeturl=$(echo $targ | grep -oP '(?<=^)(htt(p|ps)\:\/\/[\d\w\-\_\.]+?)(?=\/|$)');
+      else targeturl=$checkurl;
+      fi;
+    echo -n > ./_sitedata.tmp.txt;
+    curl #p# -k $targ #jq# 2>/dev/null >./_sitedata.tmp.txt; 
+    links=$(grep -oP '(?<=\")(([\w\d\-\_\.\?\&\=\:\/]+?\/)([\w\d\-\_\.\?\&\=]+?)+?)(?=\")' ./_sitedata.tmp.txt | sed -s 's/^\.*\/*//' | sort -u);
+    for link in $links; do 
+      fulllinks="$fulllinks $(echo $link | grep -oP 'htt(p|ps)\:\/\/' &>/dev/null && echo $link || echo $targeturl/$link | sed -s 's/^\.*\/*//')";
+    done;
+  done;
+  rm ./_sitedata.tmp.txt;
+  for link in $(echo $fulllinks | xargs -n1 | sort -u); do 
+    curl #p# -sk $link 1>/dev/null && echo $link #o#; 
+  done

