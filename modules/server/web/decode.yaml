@@ -1,5 +1,5 @@
 description: |-
-  Node.js сервер, декодирующий (base64) значение указанного параметра и перенаправляющий запрос на заданный URL
+  Node.js сервер, декодирующий (base64 / URLencoding+base64) значение указанного параметра и перенаправляющий запрос на заданный URL
 
 author: vinzekatze
 tags:
@@ -42,6 +42,13 @@ arguments:
     replacer: '#delay#'
     regex: '\d+'
 
+  btoa-fix:
+    default:
+      - 'N'
+      - 'Y'
+    description: декодировать полученные данные из URL Encoding
+    replacer: '#btoa-fix#'
+
   ssl:
     default:
       - |-
@@ -73,12 +80,14 @@ arguments:
     default:
       -
       - |-
-        var data = {from_ip: req.socket.remoteAddress,
+        var logdata = {from_ip: req.socket.remoteAddress,
                     url: req.url,
+                    method: req.method,
                     date: Date(),
                     headers: req.headers,
-                    body: req.body};
-          console.log(data);
+                    body: body};
+          console.log(logdata);
+          console.log();
     description: показывать полный лог
     replacer: '#logging#'  
 
@@ -88,9 +97,16 @@ mode:
     r: '{0!r}'
     cert: '{0!r}'
     key: '{0!r}'
+  replace:
+    btoa-fix:
+      N: >-
+        buff.toString('ascii')
+      Y: >-
+        decodeURIComponent(buff.toString('ascii'))
 
 shell: node
 script: |-
+  const qs = require('querystring');
   const http = require('http');
   const https = require('https');
   const fs = require('fs');
@@ -101,18 +117,31 @@ script: |-
   const delay = #delay#
 
   function logic (req, res) {
-    url_parts = url.parse(req.url, true);
-    query = url_parts.query;
-    param_data = query.#payload-param#;
-    if (typeof param_data !== "undefined") {
-      buff = Buffer.from(query.#payload-param#, 'base64')
-      num = query.#num-param# ?? 0
-      console.log(`Data part ${num} received from ${req.socket.remoteAddress}:\n${buff.toString('ascii')}`);
-    };
-    res.writeHeader(302, { 'Location': redirect});
-    setTimeout(() => {res.end()}, delay);
-    #logging#
-    console.log();
+    var body = '';
+    req.on('data', function(data) {
+      body += data;
+    });
+    req.on('end', function() {
+      url_parts = url.parse(req.url, true);
+      query = url_parts.query;
+      param_data = query.#payload-param#;
+      param_data_post = qs.parse(body).#payload-param#;
+      
+      if (typeof param_data_post !== "undefined") {
+        buff = Buffer.from(param_data_post, 'base64');
+        console.log(`POST data received from ${req.socket.remoteAddress}:\n${#btoa-fix#}`);
+        console.log();
+      };
+      if (typeof param_data !== "undefined") {
+        buff = Buffer.from(param_data, 'base64')
+        num = query.#num-param# ?? 0
+        console.log(`GET data part ${num} received from ${req.socket.remoteAddress}:\n${#btoa-fix#}`);
+        console.log();
+      };
+      res.writeHeader(302, { 'Location': redirect});
+      setTimeout(() => {res.end()}, delay);
+      #logging#
+    });
   };
 
   #sslornot#

