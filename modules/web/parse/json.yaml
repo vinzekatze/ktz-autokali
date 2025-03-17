@@ -1,0 +1,24 @@
+description: >-
+  Однострочники для извлечения данных из json-файлов
+author: vinzekatze
+tags:
+  - jq
+  - parse
+  - keys
+  - uniq
+
+arguments:
+  json:
+    description: обрабатываемые json-файлы
+    multiple: true
+
+mode:
+  format:
+    json: '{0!r}'
+
+shell: bash
+
+item_1:
+  description: Извлечь все ключи
+  script: >-
+    cat #json# | jq -r '.. | objects | keys[]' | sort | uniq

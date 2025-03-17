@@ -67,7 +67,9 @@ arguments:
                     url: req.url,
                     method: req.method,
                     date: Date(),
-                    headers: req.headers};
+                    headers: req.headers,
+                    body: reqbody};
+          console.log("Request data:");
           console.log(data);
           console.log();
     description: показывать полный лог
@@ -94,17 +96,25 @@ script: |-
   const Folder = #Folder#;
 
   function logic (req, res) {
-    if (allfiles.includes(req.url)) {
-      res.writeHeader(200, {"Content-Type": mime.getType(req.url) + "; charset=UTF-8", 
-                            "Access-Control-Allow-Origin": "*"});
-      res.write(fs.readFileSync(path.join(Folder, req.url), 'utf8'));
-      res.end();
-      console.log(`File ${req.url} was sent to ${req.socket.remoteAddress}`)
-    } else {
-      res.writeHeader(302, { 'Location': redirect + req.url});
-      res.end();
-    };
-    #logging#
+    var reqbody = '';
+    req.on('data', function(data) {
+      reqbody += data;
+    });
+    req.on('end', function() {
+      if (allfiles.includes(req.url.split('?')[0])) {
+        resbody = fs.readFileSync(path.join(Folder, req.url.split('?')[0]), 'utf8');
+        res.writeHeader(200, {"Content-Type": mime.getType(req.url.split('?')[0]) + "; charset=UTF-8", 
+                              "Access-Control-Allow-Origin": "*",
+                              "Content-Length": Buffer.byteLength(resbody, 'utf8')});
+        res.write(resbody);
+        res.end();
+        console.log(`File ${req.url} was sent to ${req.socket.remoteAddress}`)
+      } else {
+        res.writeHeader(302, { 'Location': redirect + req.url});
+        res.end();
+      };
+      #logging#
+    });
   };
   
   async function readSrc (src) {
