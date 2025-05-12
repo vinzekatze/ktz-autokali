@@ -59,6 +59,12 @@ arguments:
     metavar: 'FILE'
     replacer: '#key#'
   
+  mime-unknown:
+    default: application/octet-stream
+    description: mime-тип для неизвестных файлов
+    metavar: 'MIME'
+    replacer: '#mime-default#'
+  
   log:
     default:
       -
@@ -75,6 +81,11 @@ arguments:
     description: показывать полный лог
     replacer: '#logging#'  
 
+file_1:
+  path: scripts/mimeTypes.json
+  description: mime-типы
+  replacer: '#mimeTypes#'
+
 mode:
   format:
     i: '{0!r}'
@@ -82,6 +93,7 @@ mode:
     f: '{0!r}'
     cert: '{0!r}'
     key: '{0!r}'
+    mime-unknown: '{0!r}'
 
 shell: node
 script: |-
@@ -89,21 +101,31 @@ script: |-
   const https = require('https');
   const fs = require('fs');
   const path = require('path');
-  const mime = require('mime');
   const hostname = #ip#;
   const port = #port#;
   const redirect = #redirect#;
   const Folder = #Folder#;
+  const mimeTypes = require('#mimeTypes#');
 
+  function mymimetype (file) {
+    var ext = path.extname(file);
+    if (mimeTypes.hasOwnProperty(ext)) {
+      return mimeTypes[ext];
+    } else {
+      return #mime-default#;
+    };
+  };
+  
   function logic (req, res) {
     var reqbody = '';
     req.on('data', function(data) {
       reqbody += data;
     });
     req.on('end', function() {
-      if (allfiles.includes(req.url.split('?')[0])) {
-        resbody = fs.readFileSync(path.join(Folder, req.url.split('?')[0]), 'utf8');
-        res.writeHeader(200, {"Content-Type": mime.getType(req.url.split('?')[0]) + "; charset=UTF-8", 
+      var reqfile = req.url.split('?')[0];
+      if (allfiles.includes(reqfile)) {
+        resbody = fs.readFileSync(path.join(Folder, reqfile), 'utf8');
+        res.writeHeader(200, {"Content-Type": mymimetype(reqfile) + "; charset=UTF-8", 
                               "Access-Control-Allow-Origin": "*",
                               "Content-Length": Buffer.byteLength(resbody, 'utf8')});
         res.write(resbody);

