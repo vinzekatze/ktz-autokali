@@ -27,3 +27,4 @@ xmlstarlet
 ismtp
 whatweb
 makepasswd
+gobuster

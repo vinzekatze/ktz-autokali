@@ -91,6 +91,6 @@ shell: bash
 script: >-
   #n#
   sudo nmap -#ipv6##hostgroup# -d #T# --open -Pn #sT# -p-#top-tcp# -oX ./_nmap_open_tcp.xml -iL ./_alive_targets.txt;
-  sudo nmap -#ipv6##hostgroup# -d #T# --open -Pn -sU -p-#top-udp# -oX ./_nmap_open_udp.xml -iL ./_alive_targets.txt;
+  sudo nmap -#ipv6##hostgroup# -d #T# --open -Pn -sU -p-#top-udp# --host-timeout 30m -oX ./_nmap_open_udp.xml -iL ./_alive_targets.txt;
   sudo nmap -#ipv6##hostgroup# -d #T# --open -Pn #sT# -sU -O -sV -sC --script "auth,default,version,vuln" --open -p$(xmlstarlet sel -t -m "/nmaprun/host/ports/port" #more# -v "@portid" --nl ./_nmap_open_tcp.xml ./_nmap_open_udp.xml | sort -un | paste -sd ',') -oA #o# -iL ./_alive_targets.txt;
   rm -f ./_uniq_targets.txt ./_alive_targets.txt ./_nmap_alive_hosts.xml ./_nmap_open_tcp.xml ./_nmap_open_udp.xml

@@ -2,3 +2,5 @@ elrey741/ikeforce
 simplysecurity/simplyemail
 ttervoort/zerologon-tester
 projectdiscovery/katana:latest
+edu4rdshl/findomain:latest
+projectdiscovery/httpx:latest

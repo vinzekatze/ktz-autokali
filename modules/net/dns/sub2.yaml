@@ -1,0 +1,155 @@
+description: |-
+  Поиск субдоменов
+author: vinzekatze
+tags:
+  - subdomains
+  - bruteforce
+  - permutations
+
+arguments:
+  domain:
+    default:
+    multiple: true
+    replacer: '#domain#'
+    description: целевые домены
+  o:
+    default: ./domains.txt
+    replacer: '#output#'
+    description: путь до выходного файла
+    metavar: FILE
+
+mode:
+  format:
+    o: >- 
+      {!r}
+    domain: >-
+      {!r}
+
+shell: bash
+
+file_1:
+  path: wordlists/dns/subdomains-top1million-110000.txt
+  replacer: >-
+    #top1million#
+  description: subdomains-top1million-110000.txt
+
+item_1:
+  description: Пассивный сбор
+  script: |-
+    sudo subfinder -silent -update > /dev/null 2>&1
+    
+    touch #output#
+    echo -n > ./temp.targets.txt
+    for targ in #domain#; do echo $targ >> ./temp.targets.txt; done
+
+    echo -e "\e[1;94m[assetfinder launched]\e[0m"
+    for targ in $(cat ./temp.targets.txt); do assetfinder $targ; done | tee ./temp.assetfinder.txt
+
+    echo -e "\e[1;94m[findomain launched]\e[0m"
+    docker run --rm -v $(pwd):'/temp' edu4rdshl/findomain -q -f /temp/temp.targets.txt | tee ./temp.findomain.txt
+
+    echo -e "\e[1;94m[subfinder launched]\e[0m"
+    subfinder -silent -dL ./temp.targets.txt -o ./temp.subfinder.txt
+
+    sort -u ./temp.assetfinder.txt ./temp.findomain.txt ./temp.subfinder.txt | grep -v -e '^*' -e '^\.' | grep -f ./temp.targets.txt > ./temp.result.txt
+    grep -vsxf #output# ./temp.result.txt > temp.uniq-result.txt
+    sort -u #output# temp.uniq-result.txt -o #output#
+    echo -e "\e[1;92m[passive search completed]\e[0m"
+    echo "$(cat ./temp.uniq-result.txt | wc -l) new unique subdomains discovered"
+    rm ./temp.*
+
+item_2:
+  description: Поиск с помощью recon-ng
+  script: |-
+    outfile="$(realpath #output#)" || exit
+    touch "$outfile" || exit 
+    dirpath="$(dirname $outfile)" || exit
+    reconcmdfile="$dirpath/temp.recon_ng_cmd_brute.txt"
+    reconoutfile="$dirpath/temp.recon_ng_out_brute.txt"
+    
+    echo -n > ./temp.targets.txt
+    for targ in #domain#; do echo $targ >> ./temp.targets.txt; done
+
+    echo 'workspaces remove BASHMATOR_SUBDOMAINS_SEARCH' > "$reconcmdfile"
+    echo 'workspaces create BASHMATOR_SUBDOMAINS_SEARCH' >> "$reconcmdfile"
+    
+    for targ in $(cat ./temp.targets.txt); do
+      echo 'db insert domains' >> "$reconcmdfile"
+      echo $targ >> "$reconcmdfile"
+      echo 'main' >> "$reconcmdfile"
+    done
+    
+    echo 'modules load recon/domains-hosts/mx_spf_ip' >> "$reconcmdfile"
+    echo 'run' >> "$reconcmdfile"
+    echo 'modules load recon/domains-hosts/brute_hosts' >> "$reconcmdfile"
+    echo 'run' >> "$reconcmdfile"
+    echo 'modules load recon/domains-hosts/certificate_transparency' >> "$reconcmdfile"
+    echo 'run' >> "$reconcmdfile"
+    echo 'modules load recon/domains-hosts/hackertarget' >> "$reconcmdfile"
+    echo 'run' >> "$reconcmdfile"
+    echo 'modules load recon/hosts-hosts/resolve' >> "$reconcmdfile"
+    echo 'run' >> "$reconcmdfile"
+    echo 'modules load recon/hosts-hosts/reverse_resolve' >> "$reconcmdfile"
+    echo 'run' >> "$reconcmdfile"
+    echo 'modules load recon/domains-hosts/certificate_transparency' >> "$reconcmdfile"
+    echo 'run' >> "$reconcmdfile"
+    echo 'modules load reporting/list' >> "$reconcmdfile"
+    echo 'options set TABLE hosts' >> "$reconcmdfile"
+    echo 'options set COLUMN host' >> "$reconcmdfile"
+    echo "options set FILENAME $reconoutfile" >> "$reconcmdfile"
+    echo 'run' >> "$reconcmdfile"
+    echo 'back' >> "$reconcmdfile"
+    echo 'workspaces remove BASHMATOR_SUBDOMAINS_SEARCH' >> "$reconcmdfile"
+    echo 'exit' >> "$reconcmdfile"
+    
+    echo -e "\e[1;94m[recon-ng launched]\e[0m"
+    recon-ng -r "$reconcmdfile"
+
+    sort -u $reconoutfile | grep -v -e '^*' -e '^\.' | grep -f ./temp.targets.txt > ./temp.result.txt
+    grep -vsxf #output# ./temp.result.txt > temp.uniq-result.txt
+    sort -u #output# temp.uniq-result.txt -o #output#
+    echo -e "\e[1;92m[recon-ng scan completed]\e[0m"
+    echo "$(cat ./temp.uniq-result.txt | wc -l) new unique subdomains discovered"
+    rm ./temp.*
+
+item_3:
+  description: Bruteforce по словарю
+  script: |-
+    touch #output#
+    echo -n > ./temp.targets.txt
+    for targ in #domain#; do echo $targ >> ./temp.targets.txt; done
+    
+    echo -e "\e[1;94m[gobuster launched]\e[0m"
+    for targ in $(cat ./temp.targets.txt); do
+    gobuster dns -t 25 --no-color -z --no-error -q -d $targ -w '#top1million#';
+    done | tee ./temp.rawgobuster.txt
+    grep -Eo '[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}' ./temp.rawgobuster.txt | sort -u | grep -v -e '^*' -e '^\.' | grep -f ./temp.targets.txt > ./temp.result.txt
+    
+    grep -vsxf #output# ./temp.result.txt > temp.uniq-result.txt
+    sort -u #output# temp.uniq-result.txt -o #output#
+    echo -e "\e[1;92m[bruteforce completed]\e[0m"
+    echo "$(cat ./temp.uniq-result.txt | wc -l) new unique subdomains discovered"
+    rm ./temp.*
+
+item_4:
+  description: Поиск с помощью перестановок
+  script: |-
+    cat #output# > ./temp.subdomains.txt || exit
+    echo -n > ./temp.targets.txt
+    for targ in #domain#; do echo $targ >> ./temp.targets.txt; done
+
+    echo -e "\e[1;94m[gotator launched]\e[0m"
+    docker run --rm -v $(pwd):'/temp' gotator -adv -numbers 10 -md -silent -depth 1 -sub /temp/temp.subdomains.txt | grep -oP '^(.+?)(?=\.[^.]+\.[^.]+$)' | sort -u > ./temp.wordlist.txt
+    echo "$(cat ./temp.wordlist.txt | wc -l) permutations generated"
+
+    echo -e "\e[1;94m[gobuster launched]\e[0m"
+    for targ in $(cat ./temp.targets.txt); do
+    gobuster dns -t 25 --no-color -z --no-error -q -d $targ -w ./temp.wordlist.txt;
+    done | tee ./temp.rawgobuster.txt
+    grep -Eo '[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}' ./temp.rawgobuster.txt | sort -u | grep -v -e '^*' -e '^\.' | grep -f ./temp.targets.txt > ./temp.result.txt
+    
+    grep -vsxf #output# ./temp.result.txt > temp.uniq-result.txt
+    sort -u #output# temp.uniq-result.txt -o #output#
+    echo -e "\e[1;92m[permutations bruteforce completed]\e[0m"
+    echo "$(cat ./temp.uniq-result.txt | wc -l) new unique subdomains discovered"
+    rm ./temp.*

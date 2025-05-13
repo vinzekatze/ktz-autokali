@@ -1,0 +1,62 @@
+description: |-
+  Принимает на вход список доменов, ip-адресов и портов, ищет вебы и проводит начальное сканирование.
+
+author: vinzekatze
+tags:
+  - web
+  - fastscan
+  - discovery
+
+arguments:
+  targets:
+    description: целевые хосты (доменные имена, ip-адреса) или файлы с их списками
+    multiple: true
+    replacer: '#target#'
+  p:
+    description: список портов через запятую
+    default: '80,443'
+    regex: '[\d,]+'
+    replacer: '#ports#'
+    metavar: PORTS
+  t: 
+    description: количество потоков
+    default: 25
+    regex: '\d+'
+    replacer: '#threads#'
+    metavar: THREADS
+
+mode:
+  format:
+    targets: '{!r}'
+
+file_1:
+  path: wordlists/web/dirbrute/basic/dirsearch.txt
+  description: стандартный словарь dirsearch
+  replacer: '#dirsearch#'
+
+file_2:
+  path: wordlists/web/dirbrute/basic/quickhits.txt
+  description: quickhits из SecLists
+  replacer: '#quickhits#'
+
+shell: bash
+
+script: |-
+  echo -n > temp.targs.txt
+  for targ in #target#; do cat $targ 2>/dev/null || echo $targ; done > temp.targs.txt
+
+  echo -e "\e[1;92m[web services discovery]\e[0m"
+  docker run -v $(pwd):'/temp' --rm projectdiscovery/httpx -l /temp/temp.targs.txt -fr -title -td -sc -silent -t #threads# -ports #ports# -o /temp/temp.webs.txt 
+  echo
+  for targ in $(cat ./temp.webs.txt | cut -d' ' -f1); do
+    echo -e "\e[1;91m[$targ]\e[0m \e[1;92m[whatweb info]\e[0m"
+    whatweb -t #threads# $targ
+    echo                                                         
+    echo -e "\e[1;91m[$targ]\e[0m \e[1;92m[wafw00f info]\e[0m"
+    wafw00f --timeout=10 $targ | grep --color=never -e '\[.\]'
+    echo
+    echo -e "\e[1;91m[$targ]\e[0m \e[1;92m[directory fuzzing]\e[0m"
+    dirsearch -t #threads# --no-color --quiet-mode --timeout=10 --retries=3 --full-url --include-status 200-299 --wordlists=#dirsearch#,#quickhits# -u $targ
+    echo
+  done
+  rm ./temp.*
