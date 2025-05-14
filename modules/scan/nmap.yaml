@@ -4,11 +4,8 @@ author: vinzekatze
 install:
   sudo apt install nmap xmlstarlet
 tags:
-  - port
-  - scan
-  - service
-  - version
-  - recon
+  - automatic port scan
+  - version detection
 arguments:
   n:
     default:
@@ -41,12 +38,27 @@ arguments:
       - '4'
       - '6'
     description: сканировать ipv6
-  hostgroup:
+  hg:
     metavar: NUM
     regex: \d+
     default:
       -
     description: задать флаг '--min-hostgroup'
+    replacer: '#hostgroup#'
+  
+  ht:
+    metavar: NUM
+    regex: ^\d+(h|m|s|ms)$
+    default: 1h
+    description: host-timeout при обнаружении портов (h/m/s/ms)
+    replacer: '#hosttimeout#'
+
+  nse:
+    default:
+      -
+      - ' --script "auth,vuln"'
+    description: добавить сканирование с помощью скриптов auth,vuln на последнем этапе
+    replacer: '#nse#'
 
   top-tcp:
     metavar: NUM
@@ -73,7 +85,8 @@ mode:
     target: '{!r}'
     o: '{}-ipv#ipv6#'
     T: '-T{}'
-    hostgroup: ' --min-hostgroup {}'
+    hg: ' --min-hostgroup {}'
+    ht: ' --host-timeout {}'
     top-tcp: ' --top-ports {}'
     top-udp: ' --top-ports {}'
   pformat:
@@ -81,16 +94,16 @@ mode:
   replace:
     n:
       N: >-
-        { cat #target# 2>/dev/null || echo #target#; } | sort -uR > ./_alive_targets.txt;
+        { for targ in #target#; do cat $targ 2>/dev/null || echo $targ; done; } | sort -uR > ./_alive_targets.txt;
       Y: >-
-        { cat #target# 2>/dev/null || echo #target#; } | sort -uR > ./_uniq_targets.txt;
+        { for targ in #target#; do cat $targ 2>/dev/null || echo $targ; done; } | sort -uR > ./_uniq_targets.txt;
         sudo nmap -#ipv6##hostgroup# -d -n -sn -PO -PE -PS21-23,25,53,80-81,110-111,113,135,139,143,199,443,445,465,548,587,993,995,1025,1720,1723,3306,3389,5900,6001,8080,8888 -PU53,67,123,135,137-138,161,445,631,1434,31338 -oX ./_nmap_alive_hosts.xml -iL ./_uniq_targets.txt;
         xmlstarlet sel -t -m "/nmaprun/host/address" --if "../status/@state='up' and (@addrtype='ipv4' or @addrtype='ipv6')" -v "@addr" --nl ./_nmap_alive_hosts.xml | sort -uR > ./_alive_targets.txt;
 
 shell: bash
 script: >-
   #n#
-  sudo nmap -#ipv6##hostgroup# -d #T# --open -Pn #sT# -p-#top-tcp# -oX ./_nmap_open_tcp.xml -iL ./_alive_targets.txt;
-  sudo nmap -#ipv6##hostgroup# -d #T# --open -Pn -sU -p-#top-udp# --host-timeout 30m -oX ./_nmap_open_udp.xml -iL ./_alive_targets.txt;
-  sudo nmap -#ipv6##hostgroup# -d #T# --open -Pn #sT# -sU -O -sV -sC --script "auth,default,version,vuln" --open -p$(xmlstarlet sel -t -m "/nmaprun/host/ports/port" #more# -v "@portid" --nl ./_nmap_open_tcp.xml ./_nmap_open_udp.xml | sort -un | paste -sd ',') -oA #o# -iL ./_alive_targets.txt;
+  sudo nmap -#ipv6##hostgroup# -d #T# --open -Pn #sT# -p-#top-tcp##hosttimeout# -oX ./_nmap_open_tcp.xml -iL ./_alive_targets.txt;
+  sudo nmap -#ipv6##hostgroup# -d #T# --open -Pn -sU -p-#top-udp##hosttimeout# -oX ./_nmap_open_udp.xml -iL ./_alive_targets.txt;
+  sudo nmap -#ipv6##hostgroup# -d #T# --open -Pn #sT# -sU -O -sV -sC#nse# --open -p$(xmlstarlet sel -t -m "/nmaprun/host/ports/port" #more# -v "@portid" --nl ./_nmap_open_tcp.xml ./_nmap_open_udp.xml | sort -un | paste -sd ',') -oA #o# -iL ./_alive_targets.txt;
   rm -f ./_uniq_targets.txt ./_alive_targets.txt ./_nmap_alive_hosts.xml ./_nmap_open_tcp.xml ./_nmap_open_udp.xml

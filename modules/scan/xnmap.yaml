@@ -9,11 +9,8 @@ description: |-
         xnmap -f nmap.xml -i 
 author: vinzekatze
 tags:
-  - nmap
+  - nmap output parser
   - xml
-  - parser
-  - search
-  - services
 arguments:
   s:
     metavar: STR
@@ -25,7 +22,7 @@ arguments:
       -
       - '--else'
     description: инвертировать поиск для '-s'
-  p:
+  q:
     default:
       - 'A'
       - 'S'
@@ -34,6 +31,7 @@ arguments:
       - 'N'
     description: |-
       настройка вывода: 'A' - полный сокет, 'S' - ip:порт, 'I' - ip адреса, 'P' - номера портов, 'N' - названия сервисов
+    replacer: '#p#'
   d:
     metavar: DELIM
     default:
@@ -70,7 +68,7 @@ arguments:
   
 mode:
   replace:
-    p:
+    q:
       A: >-
         -v "../../address/@addr" -o ":" -v "@portid" -o "/" -v "@protocol" -o " " -v "service/@name" -o " [" -v "service/@product" -o "][" -v "service/@version" -o "]"  --nl #f# | sort -V | uniq | sed 's/\s\?\[\]//g'
       S: >-

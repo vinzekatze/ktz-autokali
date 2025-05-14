@@ -3,9 +3,9 @@ description: >-
 
 author: vinzekatze
 tags:
-  - unknown
+  - protocol enumeration
+  - unknown ports
   - tcpwrapped
-  - connection
 
 arguments:
   target:

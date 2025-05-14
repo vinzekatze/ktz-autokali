@@ -1,0 +1,72 @@
+description: |-
+  Принимает на вход список доменов, ip-адресов и портов, ищет вебы и проводит начальное обнаружение директорий.
+
+author: vinzekatze
+tags:
+  - web port scan
+  - initial checks
+
+arguments:
+  targets:
+    description: целевые хосты (доменные имена, ip-адреса) или файлы с их списками
+    multiple: true
+    replacer: '#target#'
+  alive-webs:
+    description: выходной файл со списком обнаруженных web-сервисов
+    default: ./alive-web.txt
+    metavar: FILE
+    replacer: '#web-ls#'
+  p:
+    description: список портов через запятую
+    default: '80,443'
+    regex: '[\d,]+'
+    replacer: '#ports#'
+    metavar: PORTS
+  t: 
+    description: количество потоков
+    default: 10
+    regex: '\d+'
+    replacer: '#threads#'
+    metavar: THREADS
+  
+mode:
+  format:
+    targets: '{!r}'
+    alive-webs: '{!r}'
+
+file_1:
+  path: wordlists/web/dirbrute/basic/quickhits.txt
+  description: quickhits из SecLists
+  replacer: '#quickhits#'
+
+shell: bash
+
+item_1:
+  description: Определение доступных веб-сервисов
+  script: |-
+    echo -n > temp.targs.txt
+    for targ in #target#; do cat $targ 2>/dev/null || echo $targ; done | sort -u > temp.targs.txt
+
+    echo -e "\e[1;92m[web services discovery]\e[0m"
+    docker run -v $(pwd):'/temp' --rm projectdiscovery/httpx -l /temp/temp.targs.txt -fr -td -sc -silent -t #threads# -ports #ports# -o /temp/temp.webs.txt  
+    cat ./temp.webs.txt | cut -d" " -f1 > #web-ls#
+    rm ./temp.targs.txt ./temp.webs.txt
+    echo
+
+item_2:
+  description: Сканирование обнаруженных веб-сервисов по содержимому alive-webs
+  mode:
+    readfile:
+      - alive-webs
+    loop: alive-webs
+  script: |-
+    targ=#web-ls#
+    echo -e "\e[1;91m[$targ]\e[0m \e[1;92m[whatweb info]\e[0m"
+    whatweb -t #threads# $targ
+    echo                                                         
+    echo -e "\e[1;91m[$targ]\e[0m \e[1;92m[wafw00f info]\e[0m"
+    wafw00f --timeout=10 $targ | grep --color=never -e '\[.\]'
+    echo
+    echo -e "\e[1;91m[$targ]\e[0m \e[1;92m[directory fuzzing]\e[0m"
+    dirsearch -t #threads# --no-color --quiet-mode --timeout=10 --retries=3 --full-url --include-status 200-299 --wordlists=#quickhits# -u $targ
+    echo

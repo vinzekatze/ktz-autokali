@@ -39,6 +39,11 @@ file_6:
     #recon-ng_installs#
   description: команды для установки модулей recon-ng
 
+file_7:
+  path: .
+  replacer: '#basic_path#'
+  description: базовый путь файлов библиотеки
+
 
 
 item_1: 
@@ -65,7 +70,8 @@ item_3:
   script: >-
     if sudo su - $USER -c 'docker run hello-world'; then
     for image in $(cat "#docker_installs#");
-    do sudo su - $USER -c "docker pull $image" &&
+    do sudo su - $USER -c "docker image inspect $image &> /dev/null && docker image rm $image";
+    sudo su - $USER -c "docker pull $image" &&
     echo -e "\e[1;92m+++ [DOCKER] SUCCESSFULLY INSTALLED: $image\e[0m" ||
     echo -e "\e[1;91m+++ [DOCKER] INSTALLATION ERROR: $image\e[0m";
     done;
@@ -110,13 +116,37 @@ item_7:
 
 item_8:
   description: скриптовые установки
-  script: >-
+  script: |-
     recon-ng -r #recon-ng_installs#
-    mkdir ~/ktz-autokali-tools
-    cd ~/ktz-autokali-tools
-    git clone https://github.com/Josue87/gotator.git
-    cd gotator
-    docker build -t gotator .
+    echo -e "\e[1;94m+++ RECON-NG MODULES UPDATE COMPLETE\e[0m"
+    
+    cd #basic_path#
+    mkdir -p ./thirdparty
+
+    cd #basic_path#
+    cd ./thirdparty
+    gitrepo='https://github.com/Josue87/gotator'
+    image=$(basename $gitrepo)
+    git clone $gitrepo || { echo 'Pulling existing repo...'; cd ./$image; git pull; cd ..; }
+    cd ./$image; curdir=$(pwd)
+    git config --global --add safe.directory $(pwd)
+    sudo su - $USER -c "docker image inspect $image &> /dev/null && docker image rm $image"
+    sudo su - $USER -c "cd $curdir; docker build . -t $image"
+    sudo su - $USER -c "docker image inspect $image &> /dev/null" && echo -e "\e[1;92m+++ [SCRIPT] SUCCESSFULLY INSTALLED: $image\e[0m" || echo -e "\e[1;91m+++ [SCRIPT] INSTALLATION ERROR: $image\e[0m";
+
+    cd #basic_path#
+    cd ./thirdparty
+    gitrepo='https://github.com/k1rurk/check_bitrix'
+    image=$(basename $gitrepo)
+    git clone $gitrepo || { echo 'Pulling existing repo...'; cd ./$image; git pull; cd ..; }
+    cd ./$image; curdir=$(pwd)
+    git config --global --add safe.directory $(pwd)
+    wget https://raw.githubusercontent.com/artyuum/simple-php-web-shell/master/index.php
+    mv ./index.php ./shell.html
+    echo -e 'FROM python:3\nWORKDIR /usr/src/app\nCOPY . .\nRUN pip install --no-cache-dir -r requirements.txt\nENTRYPOINT [ "python", "./test_bitrix.py" ]' > Dockerfile
+    sudo su - $USER -c "docker image inspect $image &> /dev/null && docker image rm $image"
+    sudo su - $USER -c "cd $curdir; docker build . -t $image"
+    sudo su - $USER -c "docker image inspect $image &> /dev/null" && echo -e "\e[1;92m+++ [SCRIPT] SUCCESSFULLY INSTALLED: $image\e[0m" || echo -e "\e[1;91m+++ [SCRIPT] INSTALLATION ERROR: $image\e[0m";
 
 item_9:
   description: автонастройка bashmator

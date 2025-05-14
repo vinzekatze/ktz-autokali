@@ -41,6 +41,7 @@ script: |-
   echo
   echo
   echo "// В CODE INJECTOR"
+  echo "// 'Иногда document.getElementsByTagName('form')[<NUMBER>].submit()' может помочь"
   echo "var VarPassNum = Number(sessionStorage.getItem('1_PassNum'));"
   echo "var VarPassListLength = Number(sessionStorage.getItem('1_PassListLength'));"
   echo "var login_inj = sessionStorage.getItem('pwd' + VarPassNum).split(/:(.+)/).slice(0, 2)[0];"

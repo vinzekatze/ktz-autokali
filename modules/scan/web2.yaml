@@ -7,13 +7,8 @@ description: |-
 
 author: vinzekatze
 tags:
-  - directory
-  - bruteforce
-  - dirsearch
-  - whatweb
-  - katana
-  - spider
-  - crawler
+  - smart directory bruteforce
+  - multiple targets
 
 arguments:
   url:

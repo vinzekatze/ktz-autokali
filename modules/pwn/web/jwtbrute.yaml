@@ -1,0 +1,25 @@
+description: Брут секрета JWT
+tags:
+  - jwt secret
+  - bruteforce
+
+arguments:
+  jwt:
+    description: Строки JWT
+    multiple: true
+
+shell: bash
+
+mode:
+  loop: jwt
+  format:
+    jwt: '{!r}'
+
+file_1:
+  path: wordlists/web/jwtsecrets.txt
+  description: словарь с jwt-секретов
+  replacer: '#basicjwt#'
+
+script: >-
+  jwt-cracker -d '#basicjwt#' -t #jwt#; echo
+  

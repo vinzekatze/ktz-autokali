@@ -1,6 +1,6 @@
-elrey741/ikeforce
-simplysecurity/simplyemail
-ttervoort/zerologon-tester
+elrey741/ikeforce:latest
+simplysecurity/simplyemail:latest
+ttervoort/zerologon-tester:latest
 projectdiscovery/katana:latest
 edu4rdshl/findomain:latest
 projectdiscovery/httpx:latest

