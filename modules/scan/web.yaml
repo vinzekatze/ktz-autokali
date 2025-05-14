@@ -24,7 +24,7 @@ arguments:
     metavar: PORTS
   t: 
     description: количество потоков
-    default: 10
+    default: 25
     regex: '\d+'
     replacer: '#threads#'
     metavar: THREADS

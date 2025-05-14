@@ -39,7 +39,7 @@ file_6:
     #recon-ng_installs#
   description: команды для установки модулей recon-ng
 
-file_7:
+file_8:
   path: .
   replacer: '#basic_path#'
   description: базовый путь файлов библиотеки
