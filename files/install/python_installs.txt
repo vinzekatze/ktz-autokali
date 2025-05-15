@@ -3,3 +3,4 @@ ipwhois
 html2text
 bloodhound
 tabulate
+dirsearch

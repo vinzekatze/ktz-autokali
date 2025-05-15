@@ -1,6 +1,5 @@
 assetfinder
 colorized-logs
-dirsearch
 dnsutils
 git
 httrack
