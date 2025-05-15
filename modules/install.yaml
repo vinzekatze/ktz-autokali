@@ -159,3 +159,39 @@ item_9:
     bshm shell add /usr/bin/node --popen-args '["-e"]'
     bshm shell add /usr/bin/msfconsole --name msfconsole --popen-args '["-q", "-x"]'
     bshm library scan -f
+
+item_10:
+  description: установка проблемных пакетов на ubuntu
+  script: |-
+    tool=metasploit-framework
+    sudo snap install metasploit-framework && echo -e "\e[1;92m+++ [FIX] SUCCESSFULLY INSTALLED: $tool\e[0m" || echo -e "\e[1;91m+++ [FIX] INSTALLATION ERROR: $tool\e[0m";
+    
+    cd #basic_path#
+    mkdir -p ./binaries
+    cd ./binaries
+
+    tool=assetfinder
+    wget https://github.com/tomnomnom/assetfinder/releases/download/v0.1.1/assetfinder-linux-amd64-0.1.1.tgz
+    tar -xvf assetfinder-linux-amd64-0.1.1.tgz
+    sudo chmod a+x assetfinder
+    sudo ln -s $(pwd)/assetfinder /usr/local/bin/assetfinder
+    sudo su - $USER -c "assetfinder -h &>/dev/null" && echo -e "\e[1;92m+++ [FIX] SUCCESSFULLY INSTALLED: $tool\e[0m" || echo -e "\e[1;91m+++ [FIX] INSTALLATION ERROR: $tool\e[0m";
+    
+    tool=assetfinder
+    wget https://github.com/projectdiscovery/subfinder/releases/download/v2.7.1/subfinder_2.7.1_linux_arm64.zip
+    unzip subfinder_2.7.1_linux_arm64.zip
+    sudo chmod a+x subfinder
+    sudo ln -s $(pwd)/subfinder /usr/local/bin/subfinder
+    sudo su - $USER -c "subfinder --version &>/dev/null" && echo -e "\e[1;92m+++ [FIX] SUCCESSFULLY INSTALLED: $tool\e[0m" || echo -e "\e[1;91m+++ [FIX] INSTALLATION ERROR: $tool\e[0m";
+
+    tool=ismtp
+    wget https://github.com/altjx/ipwn/blob/master/iSMTP/iSMTP.py
+    sudo chmod a+x iSMTP.py
+    sudo ln -s $(pwd)/iSMTP.py /usr/local/bin/ismtp
+    sudo su - $USER -c "ismtp -h &>/dev/null" && echo -e "\e[1;92m+++ [FIX] SUCCESSFULLY INSTALLED: $tool\e[0m" || echo -e "\e[1;91m+++ [FIX] INSTALLATION ERROR: $tool\e[0m";
+
+    cd #basic_path#
+    tool=theHarvester
+    git clone https://github.com/laramies/theHarvester
+    cd theHarvester
+    sudo pipx install . --global || { pipx install .; sudo pipx install .; } && echo -e "\e[1;92m+++ [FIX] SUCCESSFULLY INSTALLED: $tool\e[0m" || echo -e "\e[1;91m+++ [FIX] INSTALLATION ERROR: $tool\e[0m";
