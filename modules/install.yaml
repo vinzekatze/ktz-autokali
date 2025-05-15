@@ -90,6 +90,8 @@ item_5:
   description: установка python-пакетов (PIP)
   script: >-
     for py_pack in $(cat "#python_installs#"); do
+    pip install --upgrade $py_pack ||
+    sudo apt install python3 $py_pack ||
     pip install --upgrade --break-system-packages $py_pack &&
     echo -e "\e[1;92m+++ [PIP] SUCCESSFULLY INSTALLED: $py_pack\e[0m" ||
     echo -e "\e[1;91m+++ [PIP] INSTALLATION ERROR: $py_pack\e[0m";
@@ -98,9 +100,10 @@ item_5:
 item_6:
   description: установка python-пакетов (PIPX)
   script: >-
-    sudo pipx ensurepath --global;
+    sudo pipx ensurepath --global || { pipx ensurepath; sudo pipx ensurepath; };
     for py_pack in $(cat "#python_pipx_installs#"); do
-    sudo pipx install $py_pack --global &&
+    sudo pipx upgrade $py_pack --global || 
+    { pipx upgrade $py_pack; sudo pipx upgrade $py_pack; } &&
     echo -e "\e[1;92m+++ [PIPX] SUCCESSFULLY INSTALLED: $py_pack\e[0m" ||
     echo -e "\e[1;91m+++ [PIPX] INSTALLATION ERROR: $py_pack\e[0m";
     done
