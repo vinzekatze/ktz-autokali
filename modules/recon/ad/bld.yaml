@@ -1,0 +1,31 @@
+description: |-
+  Собирает информацию с помощью bloodhound. Сохранит вывод
+
+  UI лучше ставить на хост: https://bloodhound.specterops.io/get-started/quickstart/community-edition-quickstart
+author: vinzekatze
+tags:
+  - active directory
+  - bloodhound
+arguments:
+  domain:
+    description: домен
+  u:
+    default:
+      -
+    description: логин
+    metavar: USER
+  p:
+    default:
+      -
+    description: пароль
+    metavar: PASS
+mode:
+  format:
+    domain: '{!r}'
+    u: ' -u {!r}'
+    p: ' -p {!r}'
+
+shell: bash
+script: >-
+  pref="bld$(echo #u# | sed -E 's/^-u /-/' -)-$(echo #domain#)";
+  bloodhound-python -c all -op $pref -d #domain# #u# #p#

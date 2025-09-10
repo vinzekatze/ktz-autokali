@@ -147,9 +147,9 @@ script: |-
   
   # Сканирование с помощью whatweb
   echo -e "\e[1;92mWhatWeb scanning...\e[0m"
-  whatweb_out=$(whatweb --aggression 3 --max-threads="$threads" --color='never' --user-agent=#useragent# $url)
-  whatweb_out="$whatweb_out\n$(whatweb --no-errors --aggression 3 --max-threads=$threads --color='never' --user-agent=#useragent# $url/$(makepasswd --chars=42))"
-  whatweb_out="$whatweb_out\n$(whatweb --no-errors --aggression 3 --max-threads=$threads --color='never' --user-agent=#useragent# $url/../\\)"
+  whatweb_out=$(timeout -s INT -k 10s 50s whatweb --aggression 1 --max-threads="$threads" --color='never' --user-agent=#useragent# $url)
+  whatweb_out="$whatweb_out\n$(timeout -s INT -k 10s 50s whatweb --no-errors --aggression 1 --max-threads=$threads --color='never' --user-agent=#useragent# $url/$(makepasswd --chars=16))"
+  whatweb_out="$whatweb_out\n$(timeout -s INT -k 10s 50s whatweb --no-errors --aggression 1 --max-threads=$threads --color='never' --user-agent=#useragent# $url/../\\)"
   echo -e $whatweb_out > ./$dirname/result-whatweb-$scanmarker.txt
   
   # Подключение специфических словарей по результатам whatweb

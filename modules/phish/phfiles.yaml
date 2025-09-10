@@ -20,6 +20,8 @@ description: |-
   $URLRedirect - url, куда будет редиректить жертву при посещении
   
   $UserIdHexParamName - название параметра запроса жертвы, куда phsend будет подставлять IP жертвы (email в HEX)
+
+  Для перенаправления с рандомных несуществующих страниц в корневой .htaccess нужно добавить "ErrorDocument 404 https://targetsite.ru"
 author: vinzekatze, dinimus
 
 arguments:

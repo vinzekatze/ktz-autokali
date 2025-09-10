@@ -14,14 +14,17 @@ arguments:
     default: username
     description: ID поля ввода c логином
     replacer: "#login#"
+    metavar: ID
   p:
     default: password
     description: ID поля ввода с паролем
     replacer: "#password#"
+    metavar: INPUT_ID
   f:
     default: kc-form-login
     description: ID формы, которую будем submit-идь
     replacer: "#form-name#"
+    metavar: INPUT_ID
 
 mode:
   format:

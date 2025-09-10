@@ -122,7 +122,7 @@ script: |-
       reqbody += data;
     });
     req.on('end', function() {
-      var reqfile = req.url.split('?')[0];
+      var reqfile = req.url.split('?')[0].replace(/\/$/, "");
       if (allfiles.includes(reqfile)) {
         resbody = fs.readFileSync(path.join(Folder, reqfile), 'utf8');
         res.writeHeader(200, {"Content-Type": mymimetype(reqfile) + "; charset=UTF-8", 

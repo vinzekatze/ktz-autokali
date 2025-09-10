@@ -1,0 +1,30 @@
+description: >-
+  Проводит поиск хостов по SRV-записям и сканирует их с помощью nxc
+author: vinzekatze
+tags:
+  - active directory
+  - find DC by SRV
+arguments:
+  domain:
+    description: домены
+    multiple: true
+  o:
+    default: ./srvnx.log
+    metavar: FILE
+
+file_1:
+  description: Стандартный словарь SRV имен
+  path: wordlists/dns/dns-srv-names.txt
+
+mode:
+  loop: domain
+  format:
+    domain: '{!r}'
+    o: ' --log {!r}'
+
+shell: bash
+script: >-
+  targ=#domain#;
+  dig +noall +answer +multiline SRV $(for srv in $(cat '#file_1#'); do echo "${srv}.${targ}"; done) +short | grep --color=never -oP '([a-z0-9]{0,4}\:([a-z0-9]{0,4}\:)*\:[a-z0-9]{0,4})|(([a-z0-9\-_]+\.)+[a-z0-9\-]+)' | sort -u > ./temp.findedhosts.txt;
+  for proto in 'ldap' 'smb' 'winrm' 'mssql' 'rdp'; do nxc $proto ./temp.findedhosts.txt --no-progress --timeout 5 --dns-timeout 5 -t 1 #o#; done;
+  rm ./temp.findedhosts.txt;

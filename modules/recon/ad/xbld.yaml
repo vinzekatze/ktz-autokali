@@ -1,0 +1,25 @@
+description: Парсит json-ы bloodhound
+author: vinzekatze
+tags:
+  - bloodhound output parser
+
+shell: bash
+
+arguments:
+  json:
+    description: json-файлы bloodhound
+    multiple: true
+
+mode:
+  format:
+    json: '{!r}'
+
+item_1:
+  description: Поиск паролей в открытом виде
+  script: >-
+    jq '.data.[].Properties | select ((.enabled == true)) | select ((.sfupassword != null) or (.unixpassword != null) or (.userpassword != null) or (.unicodepassword != null)) | {name, samaccountname, domain, userpassword, unicodepassword, unixpassword, sfupassword}' #json#
+  
+item_2: 
+  description: Просмотр поля description
+  script: >-
+    jq '.data.[].Properties | select ((.enabled == true)) | select ((.description != null)) | {name, samaccountname, domain, description}' #json#

@@ -151,6 +151,18 @@ item_8:
     sudo su - $USER -c "cd $curdir; docker build . -t $image"
     sudo su - $USER -c "docker image inspect $image &> /dev/null" && echo -e "\e[1;92m+++ [SCRIPT] SUCCESSFULLY INSTALLED: $image\e[0m" || echo -e "\e[1;91m+++ [SCRIPT] INSTALLATION ERROR: $image\e[0m";
 
+    cd #basic_path#
+    cd ./thirdparty
+    gitrepo='https://github.com/defparam/smuggler'
+    image=$(basename $gitrepo)
+    git clone $gitrepo || { echo 'Pulling existing repo...'; cd ./$image; git pull; cd ..; }
+    cd ./$image; curdir=$(pwd)
+    git config --global --add safe.directory $(pwd)
+    echo -e 'FROM python:3.13\nWORKDIR /usr/src/app\nCOPY . .\nENTRYPOINT [ "python", "./smuggler.py" ]' > Dockerfile
+    sudo su - $USER -c "docker image inspect $image &> /dev/null && docker image rm $image"
+    sudo su - $USER -c "cd $curdir; docker build . -t $image"
+    sudo su - $USER -c "docker image inspect $image &> /dev/null" && echo -e "\e[1;92m+++ [SCRIPT] SUCCESSFULLY INSTALLED: $image\e[0m" || echo -e "\e[1;91m+++ [SCRIPT] INSTALLATION ERROR: $image\e[0m";
+
 item_9:
   description: автонастройка bashmator
   script: |-

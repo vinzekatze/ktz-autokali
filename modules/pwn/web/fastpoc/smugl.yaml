@@ -1,0 +1,27 @@
+description: Проверка на смагглинг с помощью тулзы
+tags:
+  - smuggling
+author: vinzekatze
+
+arguments:
+  m:
+    multiple: true
+    metavar: METHOD
+    description: методы (GET POST ...)
+    replacer: '#METOD#'
+  u:
+    multiple: true
+    metavar: URL
+    description: целевые URL
+    replacer: '#URL#'
+  
+
+mode:
+  loop: u
+  format:
+    m: 'docker run --rm smuggler -m {!r} -u #URL#;'
+    u: '{!r}'
+
+shell: bash
+script: >-
+  #METOD#
