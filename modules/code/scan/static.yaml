@@ -1,0 +1,44 @@
+description: |- 
+  Проводит базовый статический анализ с помощью wihispers и dupmpsterdiver.
+
+  Для работы нужен файл projects.json
+  Результаты сложи в папку reports/cli-static
+
+author: vinzekatze
+tags:
+  - static analysis
+  - source code
+
+arguments:
+  p:
+    default: '.'
+    description: путь каталога с файлом projects.json
+    metavar: DIR
+
+mode:
+  format:
+    p: '{!r}'
+
+shell: bash
+script: >-
+  oldpath=$(pwd);
+  cd #p#;
+  outdir="reports/cli-static";
+  pjpath="./projects.json";
+  cat $pjpath > /dev/null || exit;
+  mkdir -p "./$outdir";
+  n=$(jq length $pjpath);
+  for i in $(seq 0 $((n - 1))); do 
+      projpath="$(jq '.['$i'].local_path' $pjpath | tr -d '"')";
+      projrootpath="$(jq '.['$i'].root_path' $pjpath | tr -d '"')";
+      projname="$(jq '.['$i'].name' $pjpath | tr -d '"')";
+      echo -e "\e[1;91mProject:\e[0m $projname";
+      echo -e "\e[1;92mWhispers scanning...\e[0m"
+      whispers "$projpath" -o "./$outdir/${projname}_wispers_report.json";
+      echo;
+      echo -e "\e[1;92mDumpsterDiver scanning...\e[0m"
+      docker run --rm -v "$(pwd)":"/code" rzepsky/dumpsterdiver -p "/code/$projrootpath" -o "/code/$outdir/${projname}_dumpsterdiver_report.json"
+      echo;
+      echo;
+  done;
+  cd $oldpath

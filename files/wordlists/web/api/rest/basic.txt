@@ -311,3 +311,8 @@ Metric
 Metrics
 Health
 Healthcheck
+Promocede
+Sessions
+Search
+Partner
+Promocodes

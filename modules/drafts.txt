@@ -20,3 +20,6 @@ for i in $(bshm use ad/smb/xnxc -f #NXC-ЛОГ-С-КРЕДАМИ# --item 6 --gi 
 
 # gobuster
 gobuster dir --retry --expanded --no-error --no-color --quiet --useragent $useragent --threads $threads --wordlist ./testwl.txt --url $url --status-codes 200-208,226,400,401,403,405,500-511 --status-codes-blacklist '' --output result_dirbrute.txt
+
+# Отчиска названия файлов от лишних символов
+ | sed -e 's/[^A-Za-z0-9._-]/_/g'

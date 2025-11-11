@@ -1,0 +1,41 @@
+description: |-
+  Исследует секреты репо с помощью trufflehog и декодирует найденные секреты.
+
+arguments:
+  url:
+    description: >-
+      GitLab URL (пример: http://git.service.example-company.ru)
+  token:
+    description: токен доступа к GitLab
+    metavar: TOKEN
+  o:
+    description: выходной файл с результатами
+    default: './trufflehog.json'
+    metavar: FILE
+  s:
+    description: выходной файл с декодированными секретами
+    default: './trufflehog.secrets.txt'
+    metavar: FILE
+
+mode:
+  format:
+    url: '{!r}'
+    token: '{!r}'
+    s: '{!r}'
+    o: '{!r}'
+
+shell: bash
+script: >-
+  docker run --rm trufflesecurity/trufflehog -j gitlab --token=#token# --endpoint=#url# | tee ./temp.trufflehog.json;
+  jq -s '.' ./temp.trufflehog.json > #o#;
+  truffles=#o#;
+  n=$(jq length $truffles);
+  for i in $(seq 0 $((n - 1))); do
+    echo '-------------------';
+    jq -r '.['$i'].SourceMetadata' $truffles;
+    echo -e "\e[1;92mSecret:\e[0m";
+    jq -r '.['$i'].Raw' $truffles | base64 -d; echo -e; echo -e;
+  done | tee #s#;
+  rm ./temp.trufflehog.json
+
+

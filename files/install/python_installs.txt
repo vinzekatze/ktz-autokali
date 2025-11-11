@@ -1,6 +1,6 @@
-dnspython
-ipwhois
-html2text
 bloodhound
-tabulate
 dirsearch
+dnspython
+html2text
+ipwhois
+tabulate

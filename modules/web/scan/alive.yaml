@@ -50,7 +50,7 @@ item_1:
     echo -e "\e[1;92m[web services discovery]\e[0m"
     docker run -v $(pwd):'/temp' --rm projectdiscovery/httpx -l /temp/temp.targs.txt -fr -td -sc -silent -t #threads# -ports #ports# -o /temp/temp.webs.txt  
     cat ./temp.webs.txt | cut -d" " -f1 > #web-ls#
-    rm ./temp.targs.txt ./temp.webs.txt
+    rm -f ./temp.targs.txt ./temp.webs.txt
     echo
 
 item_2:

@@ -11,14 +11,21 @@ arguments:
   targets_list:
     metavar: FILE
     multiple: true
+    description: цели или файл с целями
   o:
     default: ./cme-log.txt
+    metavar: FILE
+    description: выходной файл
   u:
     default:
       -
+    metavar: USER
+    description: имя пользователя
   p:
     default:
       -
+    metavar: PASSWORD
+    description: пароль
 
 mode:
   format:

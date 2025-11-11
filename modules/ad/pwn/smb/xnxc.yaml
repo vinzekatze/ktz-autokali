@@ -14,13 +14,22 @@ arguments:
     default:
       -
     multiple: true
+    metavar: FILE
     replacer: __FILE__
     description: файлы с логом вывода crackmapexec, из которых будет извлекаться необходимая информация. Если не указан, читает из pipe
-  
+
+  pwn:
+    default:
+      -
+      - "grep -a -i --color=never -e '(Pwn3d!)' |"
+    replacer: __PWNED__
+    description: показать только Pwn3d хосты (для item 5 и 6)
+
   gi:
     default:
       -
     multiple: true
+    metavar: REGEX
     replacer: __GREP-IN__
     description: строки для включающей предфильтрации (grep -i -e)
 
@@ -28,6 +37,7 @@ arguments:
     default:
       -
     multiple: true
+    metavar: REGEX
     replacer: __GREP-EX__
     description: строки для исключающей предфильтрации (grep -iv -e)
   
@@ -90,7 +100,7 @@ item_5:
         awk -v FS='SMB ' '{{print "SMB",$2}}' | awk '{{print $6}}' |
   description: получить валидные креды
   script: >-
-    cat __FILE__ | ansi2txt | __GREP-IN__ __GREP-EX__ grep -a --color=never -e 'SMB*.*\[+\].*\\.*:' | __SHOR__ sort -u
+    cat __FILE__ | ansi2txt | __PWNED__ __GREP-IN__ __GREP-EX__ grep -a --color=never -e 'SMB*.*\[+\].*\\.*:' | __SHOR__ sort -u
 
 item_6:
   mode:
@@ -99,7 +109,7 @@ item_6:
         awk -v FS='SMB ' '{{print "SMB",$2}}' | sed 's/\\/\//' | awk '{{print $6 "@" $2}}' |
   description: получить валидные креды в формате impacket
   script: >-
-    cat __FILE__ | ansi2txt | __GREP-IN__ __GREP-EX__ grep -a --color=never -e 'SMB*.*\[+\].*\\.*:' | __SHOR__ sort -u
+    cat __FILE__ | ansi2txt | __PWNED__ __GREP-IN__ __GREP-EX__ grep -a --color=never -e 'SMB*.*\[+\].*\\.*:' | __SHOR__ sort -u
 
 item_7:
   mode:

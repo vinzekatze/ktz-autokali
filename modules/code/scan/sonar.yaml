@@ -1,0 +1,54 @@
+description: |- 
+  Запускает sonar-scanner. Можно внаглую - проекты создадутся сами.
+
+  Для работы нужен файл projects.json
+
+  Поднять SonarQube Community:
+    - первый запуск: 
+      docker run -d --name sonarqube -e SONAR_ES_BOOTSTRAP_CHECKS_DISABLE=true -p 9000:9000 sonarqube:latest
+    
+    - далее:
+      docker container start sonarqube
+      docker container stop sonarqube
+
+
+author: vinzekatze
+tags:
+  - sonarqube
+  - source code analysis
+
+arguments:
+  url:
+    description: >-
+      URL сервера SonarQube (http://{IP-ADDR}:9000)
+    metavar: URL
+  token:
+    description: sonarqube authentication token (делается в настройке профиля)
+  p:
+    default: '.'
+    description: путь каталога с файлом projects.json
+    metavar: DIR
+
+mode:
+  format:
+    p: '{!r}'
+    url: '{!r}'
+    token: '{!r}'
+
+shell: bash
+script: >-
+  oldpath=$(pwd);
+  cd #p#;
+  pjpath="./projects.json";
+  cat $pjpath > /dev/null || exit;
+  n=$(jq length $pjpath);
+  for i in $(seq 0 $((n - 1))); do 
+      projpath="$(jq '.['$i'].local_path' $pjpath | tr -d '"')";
+      projname="$(jq '.['$i'].name' $pjpath | tr -d '"')";
+      echo -e "\e[1;91mProject:\e[0m $projname";
+      echo -e "\e[1;92mStarting Sonar-Scanner...\e[0m"
+      docker run --rm -e SONAR_HOST_URL=#url# -e SONAR_TOKEN=#token# -v "$projpath:/usr/src" sonarsource/sonar-scanner-cli -Dsonar.projectKey=$projname;
+      echo;
+      echo;
+  done;
+  cd $oldpath

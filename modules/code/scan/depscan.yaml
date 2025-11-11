@@ -1,0 +1,40 @@
+description: |- 
+  Определяет уязвимые зависимости.
+
+  Для работы нужен файл projects.json
+  Результаты сложи в папку reports/dependencies
+
+author: vinzekatze
+tags:
+  - dependency check
+  - source code analysis
+
+arguments:
+  p:
+    default: '.'
+    description: путь каталога с файлом projects.json
+    metavar: DIR
+
+mode:
+  format:
+    p: '{!r}'
+
+shell: bash
+script: >-
+  oldpath=$(pwd);
+  cd #p#;
+  outdir="reports/dependencies";
+  pjpath="./projects.json";
+  cat $pjpath > /dev/null || exit;
+  mkdir -p "./$outdir";
+  n=$(jq length $pjpath);
+  for i in $(seq 0 $((n - 1))); do 
+      projpath="$(jq '.['$i'].root_path' $pjpath | tr -d '"')";
+      projname="$(jq '.['$i'].name' $pjpath | tr -d '"')";
+      echo -e "\e[1;91mProject:\e[0m $projname";
+      echo -e "\e[1;92mDep-Scan scanning...\e[0m"
+      docker run --rm -v "$(pwd)":"/app" ghcr.io/owasp-dep-scan/dep-scan depscan --no-banner --src "/app/$projpath" --reports-dir "/app/$outdir/${projname}_depscan";
+      echo;
+      echo;
+  done;
+  cd $oldpath

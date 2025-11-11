@@ -23,3 +23,13 @@ item_2:
   description: Просмотр поля description
   script: >-
     jq '.data.[].Properties | select ((.enabled == true)) | select ((.description != null)) | {name, samaccountname, domain, description}' #json#
+
+item_3:
+  description: Список хостнеймов
+  script: >-
+    jq 'if .meta.type == "computers" then .data.[].Properties.name else "" end' -r #json# 2>/dev/null | sort | uniq
+
+item_4:
+  description: Список имен пользователей
+  script: >-
+    jq 'if .meta.type == "users" then .data.[].Properties | select ((.enabled == true)) | .samaccountname else "" end' -r #json# 2>/dev/null | sort | uniq

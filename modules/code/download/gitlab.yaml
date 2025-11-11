@@ -1,0 +1,64 @@
+description: |- 
+  Загружает код с GitLab и формирует projects.json, необходимый для работы остальных автоматизаций.
+  Скрипт по умолчанию просматривает доступные ветки.
+
+  Для загрузки необходимо:
+      - создать токен доступа в репозитории (Edit Profile -> Access Tokens)
+      - добавить свой SSH-ключ (Edit Profile -> SSH Keys)
+
+author: vinzekatze
+tags:
+  - gitlab
+  - download
+
+arguments:
+  url:
+    description: >-
+      GitLab URL (пример: http://git.service.example-company.ru)
+  token:
+    description: токен доступа к GitLab
+  i:
+    default:
+      -
+    multiple: true
+    metavar: PATTERN
+    description: >-
+      включить проекты по фильтру (пример: /GroupName/**)
+  d:
+    default: './'
+    description: директория скачивания проектов
+    metavar: PATH 
+  
+mode:
+  format:
+    token: '{!r}'
+    url: '{!r}'
+  join:
+    i: ','
+  pformat:
+    i: '-i {!r}'
+
+shell: bash
+script: >-
+  gitlabber -t #token# -u #url# -p #i#
+
+item_1:
+  description: загрузить проекты в заданную директорию
+  script: >-
+    gitlabber -t #token# -u #url# #i# #d#
+
+item_2:
+  description: создать файл projects.json
+  script: >-
+    curdir=$(pwd); cd #d#;
+    gitlabber -t #token# -u #url# #i# -p --print-format json -m ssh | 
+    jq -M '..|{type: .type?, url: .url?, root_path: .root_path?} | select(.type=="project")' |
+    jq -M --arg pwd $(pwd) '. += {local_path:($pwd+.root_path)}' |
+    jq -Ms '.' > ./temp_projects.json;
+    n=$(jq length ./temp_projects.json);
+    for i in $(seq 0 $((n - 1))); do
+      root_path=$(jq '.['$i'].root_path' ./temp_projects.json);
+      jq -M --arg name $(echo ${root_path:2:-1} | tr '/' '_' | tr -d ' .') '.['$i']+={name: $name} | .['$i']' ./temp_projects.json;
+    done | tee ./temp2_projects.json; jq -sM '.' ./temp2_projects.json >./projects.json;
+    rm ./temp2_projects.json ./temp_projects.json;
+    cd $curdir
