@@ -1,6 +1,9 @@
+bloodhound
+donpapi
 git+https://github.com/Pennyw0rth/NetExec
 gitlabber
 impacket
+lsassy
 ssh-audit
 wafw00f
 whispers

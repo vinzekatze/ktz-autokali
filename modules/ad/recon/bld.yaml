@@ -1,7 +1,9 @@
 description: |-
-  Собирает информацию с помощью bloodhound. Сохранит вывод
+  Собирает информацию с помощью bloodhound-python.
+  Сохранит вывод в директорию запуска.
 
-  UI лучше ставить на хост: https://bloodhound.specterops.io/get-started/quickstart/community-edition-quickstart
+  Установщик bloodhound тут:
+  https://github.com/SpecterOps/bloodhound-cli/releases
 author: vinzekatze
 tags:
   - active directory

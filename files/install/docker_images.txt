@@ -1,6 +1,7 @@
 edu4rdshl/findomain:latest
 elrey741/ikeforce:latest
 ghcr.io/owasp-dep-scan/dep-scan:master-nydus
+ghcr.io/oj/gobuster:latest
 owasp/dependency-check:latest
 projectdiscovery/httpx:latest
 projectdiscovery/katana:latest

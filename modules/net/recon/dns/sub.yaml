@@ -118,10 +118,11 @@ item_3:
     touch #output#
     echo -n > ./temp.targets.txt
     for targ in #domain#; do echo $targ >> ./temp.targets.txt; done
-    
+    cp '#top1million#' ./temp.top1million.txt
+
     echo -e "\e[1;94m[gobuster launched]\e[0m"
     for targ in $(cat ./temp.targets.txt); do
-    gobuster dns -t 25 --no-color -z --no-error -q -d $targ -w '#top1million#';
+    docker run --rm -v $(pwd):'/temp' ghcr.io/oj/gobuster:latest dns -t 25 --no-color -z --no-error -q -d $targ -w '/temp/temp.top1million.txt';
     done | tee ./temp.rawgobuster.txt
     grep -Eo '[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}' ./temp.rawgobuster.txt | sort -u | grep -v -e '^*' -e '^\.' | grep -f ./temp.targets.txt > ./temp.result.txt
     
@@ -144,7 +145,7 @@ item_4:
 
     echo -e "\e[1;94m[gobuster launched]\e[0m"
     for targ in $(cat ./temp.targets.txt); do
-    gobuster dns -t 25 --no-color -z --no-error -q -d $targ -w ./temp.wordlist.txt;
+    docker run --rm -v $(pwd):'/temp' ghcr.io/oj/gobuster:latest dns -t 25 --no-color -z --no-error -q -d $targ -w /temp/temp.wordlist.txt;
     done | tee ./temp.rawgobuster.txt
     grep -Eo '[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}' ./temp.rawgobuster.txt | sort -u | grep -v -e '^*' -e '^\.' | grep -f ./temp.targets.txt > ./temp.result.txt
     

@@ -1,0 +1,20 @@
+description: |-
+  Запускает Get-GPPPassword.py на множество целей
+author: vinzekatze
+
+tags:
+  - Get-GPPPassword.py
+
+arguments:
+  targets:
+    multiple: true
+    description: >-
+      [[domain/]username[:password]@]<targetName or address> и/или файлы с такими строками
+shell: bash
+
+script: >-
+  for targ in $(cat #targets# 2>/dev/null || echo #targets#); do 
+  echo -en "\e[1;91mTarget: \e[0m"; echo "${targ#*@} (${targ%:*})";
+  Get-GPPPassword.py "$targ";
+  echo; done
+

