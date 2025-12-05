@@ -1,7 +1,6 @@
 description: |-
-  Пытается определить hostname https серверов на основе информации из SSL-сертификата и последующим брутом vhost.
-  
-  Может помочь при работе с вебками, для которых нет hostname.
+  Брут виртуальных хостнеймов. В том числе пытается определить hostname https серверов на основе информации из SSL-сертификата.
+
 author: vinzekatze
 tags:
   - https virtual hosts
@@ -9,13 +8,30 @@ tags:
   - web servers with unknown domain
 
 arguments:
-  targets:
-    description: файл со списком https-целей
+  url:
+    description: файл со списком целей ("http(s)://ip:port")
     replacer: '#target#'
-  d:
-    default: ./vhost
+    metavar: FILE
+  domain:
+    default:
+      -
+    description: добавить домены для генерации словарей (лучше не много!)
+    multiple: true
+    metavar: 'DOMAIN'
+    replacer: '#domtogen#'
+  wordlist:
+    default:
+      -
+    description: добавить словари для перечисления (например, обнаруженные в ходе разведки субдомены)
+    metavar: FILE
+    replacer: '#subs#'
+    multiple: true
+  
+  dir:
+    default: ./vhosts
     description: директория, куда будут записаны результаты gobuster vhost
     replacer: '#dir#'
+    metavar: DIR
   t:
     default: 25
     description: количество потоков
@@ -31,36 +47,84 @@ file_1:
 
 mode:
   readfile:
-    - targets
-  loop: targets
+    - url
+  loop: url
   format: 
-    targets: '{!r}'
-    d: '{!r}'
-
+    url: '{!r}'
+    dir: '{!r}'
+    wordlist: '{!r}'
+    domain: '{!r}'
+  pformat:
+    domain: |-
+      echo -e "\e[1;91m[$targurl]\e[0m \e[1;92m[adding domains to generate a wordlist]\e[0m"
+      for rootdom in {0}; do echo $rootdom; done | tee temp.${{filename}}.add.domains.txt
+      echo
+    wordlist: |-
+      echo "Adding third-party dictionaries..."
+      cat {0} >> temp.${{filename}}.wordlist.txt
 shell: bash
 script: |-
-  pretarg=#target#;
-  resultdir=#dir#;
-  mkdir -p "$resultdir";
-  targ=$(echo $pretarg | sed 's/http.*:\/\///g' | cut -d'/' -f1);
-  filename=$(echo $targ | sed 's/[^0-9.a-zA-Z]/-/g');
-  echo -e "\e[1;91m[$targ]\e[0m \e[1;92m[domains from ssl]\e[0m";
-  gsan 46.243.227.57 --output "temp.${filename}.domains.txt" &>/dev/null;
-  if [[ ! -s "temp.${filename}.domains.txt" ]]; then echo "Domain names not found"; exit ; else cat temp.${filename}.domains.txt; fi;
-  echo;
+  pretarg=#target#
+  resultdir=#dir#
+  mkdir -p "$resultdir"
+  
+  # подготовка переменных
+  targip=$(echo $pretarg | sed 's/http.*:\/\///g' | cut -d'/' -f1)
+  targurl=$(echo $pretarg | awk -F/ '{print $1"//"$3}')
+  targproto=${targurl%%://*}
+  filename=$(echo "${targproto}-${targip}" | sed 's/[^0-9.a-zA-Z]/-/g')
+  echo $targip $targurl $targproto $filename
+  
+  rm -f ./temp.${filename}.*
 
-  echo -e "\e[1;91m[$targ]\e[0m \e[1;92m[generating wordlist]\e[0m";
-  echo "Processing...";
-  for domain in $(cat temp.${filename}.domains.txt | sort | uniq); do
-  cat #vhost# | sed 's\%s\'$domain'\' >> temp.${filename}.vhostwrd.txt;
-  done;
-  cat temp.${filename}.vhostwrd.txt | sort | uniq > temp.${filename}.vhostwrdsort.txt;
-  echo "Generated $(cat temp.${filename}.vhostwrdsort.txt | wc -l) vhost names";
-  rm -f temp.${filename}.vhostwrd.txt;
-  echo;
+  # Сбор из SSL
+  if [[ "$targproto" == "https" ]]; then
+    echo -e "\e[1;91m[$targurl]\e[0m \e[1;92m[grap domains from ssl]\e[0m"
+    gsan $targip --output "temp.${filename}.ssl.domains.txt" &>/dev/null
+    cat temp.${filename}.ssl.domains.txt | sort | uniq > temp.${filename}.uniq.ssl.domains.txt; rm -f temp.${filename}.ssl.domains.txt
+    if [[ ! -s "temp.${filename}.uniq.ssl.domains.txt" ]]; then 
+      echo "No domain names found"
+    else
+      cat temp.${filename}.uniq.ssl.domains.txt
+    fi
+  fi
+  echo
 
-  echo -e "\e[1;91m[$targ]\e[0m \e[1;92m[vhost enumeration]\e[0m";
-  echo "Processing...";
-  docker run --user root --rm -v "$(pwd):/temp" ghcr.io/oj/gobuster:latest vhost  --random-agent --threads #threads# --no-error --no-progress --no-color --quiet --no-tls-validation --url "https://$targ" --wordlist "/temp/temp.${filename}.vhostwrdsort.txt" | tee -a "${resultdir}"/"${filename}.vhosts.txt";
+  # Добавление доменов из параметров
+  touch temp.${filename}.add.domains.txt
+  #domtogen#
+
+  # Генерация словаря
+  touch temp.${filename}.wordlist.txt
+  echo -e "\e[1;91m[$targurl]\e[0m \e[1;92m[preparing wordlist]\e[0m";
+  cat temp.${filename}.uniq.ssl.domains.txt temp.${filename}.add.domains.txt | sort | uniq > temp.${filename}.domains.txt
+  rm -f temp.${filename}.uniq.ssl.domains.txt temp.${filename}.add.domains.txt
+  if [[ ! -s "temp.${filename}.domains.txt" ]]; then 
+    echo "Nothing to generate..."
+  else
+    echo "Generating..."
+    for domain in $(cat temp.${filename}.domains.txt | sort | uniq); do
+    cat #vhost# | sed 's\%s\'$domain'\' >> temp.${filename}.wordlist.txt;
+    done;
+  fi
+
+  # Добавление сторонних словарей
+  #subs#
+
+  # Подготовка общего словаря
+  cat temp.${filename}.wordlist.txt | sort | uniq > temp.${filename}.FIN.wordlist.txt
+  rm -f temp.${filename}.wordlist.txt
+  if [[ ! -s "temp.${filename}.FIN.wordlist.txt" ]]; then 
+    echo "Wordlist is empty"
+    rm -f ./temp.*
+    echo
+    exit
+  else
+    echo "Prepared $(cat temp.${filename}.FIN.wordlist.txt | wc -l) vhost names";
+    echo
+    echo -e "\e[1;91m[$targurl]\e[0m \e[1;92m[vhost enumeration]\e[0m";
+    echo "Processing...";
+    docker run --user root --rm -v "$(pwd):/temp" ghcr.io/oj/gobuster:latest vhost  --random-agent --threads #threads# --no-error --no-progress --no-color --quiet --no-tls-validation --url "$targurl" --wordlist "/temp/temp.${filename}.FIN.wordlist.txt" | tee -a "${resultdir}"/"${filename}.vhosts.txt";
   echo;
-  rm -f ./temp.* ;
+  fi
+  rm -f ./temp.*
