@@ -73,8 +73,6 @@ script: |-
   targurl=$(echo $pretarg | awk -F/ '{print $1"//"$3}')
   targproto=${targurl%%://*}
   filename=$(echo "${targproto}-${targip}" | sed 's/[^0-9.a-zA-Z]/-/g')
-  echo $targip $targurl $targproto $filename
-  
   rm -f ./temp.${filename}.*
 
   # Сбор из SSL
