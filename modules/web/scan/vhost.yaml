@@ -1,0 +1,59 @@
+description: |-
+  Пытается определить hostname https серверов на основе информации из SSL-сертификата и последующим брутом vhost.
+
+  Может помочь при работе с вебками, для которых нет hostname.
+author: vinzekatze
+tags:
+  - https virtual hosts
+  - ssl
+  - web servers with unknown domain
+
+arguments:
+  targets:
+    description: файл со списком https-целей (желательно в формате IP:PORT)
+    replacer: '#target#'
+  t:
+    default: 25
+    description: количество потоков
+    replacer: '#threads#'
+    regex: '\d+'
+    metavar: TREADS
+
+file_1:
+  path: wordlists/web/vhost/virtual-host-wordlist.txt
+  description: >-
+    словарь на 556к слов
+  replacer: '#vhost#'
+
+mode:
+  readfile:
+    - targets
+  loop: targets
+  format: 
+    targets: '{!r}'
+
+shell: bash
+script: |-
+  pretarg=#target#;
+  targ=$(echo $pretarg | sed 's/http.*:\/\///g' | cut -d'/' -f1);
+  filename=$(echo $targ | sed 's/[^0-9.a-zA-Z]/-/g');
+  echo -e "\e[1;91m[$targ]\e[0m \e[1;92m[domains from ssl]\e[0m";
+  gsan 46.243.227.57 --output "temp.${filename}.domains.txt" &>/dev/null;
+  if [[ ! -s "temp.${filename}.domains.txt" ]]; then echo "Domain names not found"; exit ; else cat temp.${filename}.domains.txt; fi;
+  echo;
+
+  echo -e "\e[1;91m[$targ]\e[0m \e[1;92m[generating wordlist]\e[0m";
+  echo "Processing...";
+  for domain in $(cat temp.${filename}.domains.txt | sort | uniq); do
+  cat #vhost# | sed 's\%s\'$domain'\' >> temp.${filename}.vhostwrd.txt;
+  done;
+  cat temp.${filename}.vhostwrd.txt | sort | uniq > temp.${filename}.vhostwrdsort.txt;
+  echo "Generated $(cat temp.${filename}.vhostwrdsort.txt | wc -l) vhost names";
+  rm -f temp.${filename}.vhostwrd.txt;
+  echo;
+
+  echo -e "\e[1;91m[$targ]\e[0m \e[1;92m[vhost enumeration]\e[0m";
+  echo "Processing...";
+  docker run --user root --rm -v "$(pwd):/temp" ghcr.io/oj/gobuster:latest vhost --threads #threads# --no-error --no-progress --no-color --quiet --no-tls-validation --url "https://$targ" --wordlist "/temp/temp.${filename}.vhostwrdsort.txt";
+  echo;
+  rm -f ./temp.* ;

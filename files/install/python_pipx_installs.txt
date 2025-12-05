@@ -2,6 +2,7 @@ bloodhound
 donpapi
 git+https://github.com/Pennyw0rth/NetExec
 gitlabber
+gsan
 impacket
 lsassy
 ssh-audit
