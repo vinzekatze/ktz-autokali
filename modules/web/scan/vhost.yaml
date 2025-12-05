@@ -1,6 +1,6 @@
 description: |-
   Пытается определить hostname https серверов на основе информации из SSL-сертификата и последующим брутом vhost.
-
+  
   Может помочь при работе с вебками, для которых нет hostname.
 author: vinzekatze
 tags:
@@ -10,8 +10,12 @@ tags:
 
 arguments:
   targets:
-    description: файл со списком https-целей (желательно в формате IP:PORT)
+    description: файл со списком https-целей
     replacer: '#target#'
+  d:
+    default: ./vhost
+    description: директория, куда будут записаны результаты gobuster vhost
+    replacer: '#dir#'
   t:
     default: 25
     description: количество потоков
@@ -31,10 +35,13 @@ mode:
   loop: targets
   format: 
     targets: '{!r}'
+    d: '{!r}'
 
 shell: bash
 script: |-
   pretarg=#target#;
+  resultdir=#dir#;
+  mkdir -p "$resultdir";
   targ=$(echo $pretarg | sed 's/http.*:\/\///g' | cut -d'/' -f1);
   filename=$(echo $targ | sed 's/[^0-9.a-zA-Z]/-/g');
   echo -e "\e[1;91m[$targ]\e[0m \e[1;92m[domains from ssl]\e[0m";
@@ -54,6 +61,6 @@ script: |-
 
   echo -e "\e[1;91m[$targ]\e[0m \e[1;92m[vhost enumeration]\e[0m";
   echo "Processing...";
-  docker run --user root --rm -v "$(pwd):/temp" ghcr.io/oj/gobuster:latest vhost --threads #threads# --no-error --no-progress --no-color --quiet --no-tls-validation --url "https://$targ" --wordlist "/temp/temp.${filename}.vhostwrdsort.txt";
+  docker run --user root --rm -v "$(pwd):/temp" ghcr.io/oj/gobuster:latest vhost  --random-agent --threads #threads# --no-error --no-progress --no-color --quiet --no-tls-validation --url "https://$targ" --wordlist "/temp/temp.${filename}.vhostwrdsort.txt" | tee -a "${resultdir}"/"${filename}.vhosts.txt";
   echo;
   rm -f ./temp.* ;
