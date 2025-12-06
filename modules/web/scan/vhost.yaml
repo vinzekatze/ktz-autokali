@@ -136,7 +136,7 @@ script: |-
     echo
     echo -e "\e[1;91m[$targurl]\e[0m \e[1;92m[vhost enumeration]\e[0m";
     echo "Processing...";
-    #TIMEOUT#docker run --user root --rm -v "$(pwd):/temp" ghcr.io/oj/gobuster:latest vhost --exclude-status 200-299,300-399,500-599 --random-agent --threads #threads# --no-error --no-progress --no-color --quiet --no-tls-validation --url "$targurl" --wordlist "/temp/temp.${filename}.FIN.wordlist.txt" | tee -a "${resultdir}"/"${filename}.vhosts.txt";
+    #TIMEOUT#docker run --user root --rm -v "$(pwd):/temp" ghcr.io/oj/gobuster:latest vhost --exclude-status 400-499 --random-agent --threads #threads# --no-error --no-progress --no-color --quiet --no-tls-validation --url "$targurl" --wordlist "/temp/temp.${filename}.FIN.wordlist.txt" | tee -a "${resultdir}"/"${filename}.vhosts.txt";
   echo;
   fi
   rm -f ./temp.${filename}.*
