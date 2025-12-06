@@ -12,6 +12,7 @@ arguments:
     description: файл со списком целей ("http(s)://ip:port")
     replacer: '#target#'
     metavar: FILE
+    regex: 'http(s?):\/\/.+'
   domain:
     default:
       -
@@ -26,7 +27,15 @@ arguments:
     metavar: FILE
     replacer: '#subs#'
     multiple: true
-  
+  timeout:
+    default:
+      -
+    description: >-
+      таймаут для остановки gobuster (например: 10s, 30m, 1h)
+    metavar: TIME
+    replacer: '#TIMEOUT#'
+    regex: >-
+      [1-9][0-9]*[shm]
   dir:
     default: ./vhosts
     description: директория, куда будут записаны результаты gobuster vhost
@@ -54,6 +63,7 @@ mode:
     dir: '{!r}'
     wordlist: '{!r}'
     domain: '{!r}'
+    timeout: 'timeout --signal=SIGINT {} '
   pformat:
     domain: |-
       echo -e "\e[1;91m[$targurl]\e[0m \e[1;92m[adding domains to generate a wordlist]\e[0m"
@@ -76,10 +86,12 @@ script: |-
   rm -f ./temp.${filename}.*
 
   # Сбор из SSL
+  touch temp.${filename}.uniq.ssl.domains.txt
   if [[ "$targproto" == "https" ]]; then
     echo -e "\e[1;91m[$targurl]\e[0m \e[1;92m[grap domains from ssl]\e[0m"
     gsan $targip --output "temp.${filename}.ssl.domains.txt" &>/dev/null
-    cat temp.${filename}.ssl.domains.txt | sort | uniq > temp.${filename}.uniq.ssl.domains.txt; rm -f temp.${filename}.ssl.domains.txt
+    cat temp.${filename}.ssl.domains.txt | sort | uniq > temp.${filename}.uniq.ssl.domains.txt; 
+    rm -f temp.${filename}.ssl.domains.txt
     if [[ ! -s "temp.${filename}.uniq.ssl.domains.txt" ]]; then 
       echo "No domain names found"
     else
@@ -105,12 +117,14 @@ script: |-
     cat #vhost# | sed 's\%s\'$domain'\' >> temp.${filename}.wordlist.txt;
     done;
   fi
+  rm -f temp.${filename}.domains.txt
 
   # Добавление сторонних словарей
   #subs#
 
   # Подготовка общего словаря
-  cat temp.${filename}.wordlist.txt | sort | uniq > temp.${filename}.FIN.wordlist.txt
+  echo 'Randomising...'
+  cat temp.${filename}.wordlist.txt | sort | uniq | sort -R > temp.${filename}.FIN.wordlist.txt
   rm -f temp.${filename}.wordlist.txt
   if [[ ! -s "temp.${filename}.FIN.wordlist.txt" ]]; then 
     echo "Wordlist is empty"
@@ -122,7 +136,7 @@ script: |-
     echo
     echo -e "\e[1;91m[$targurl]\e[0m \e[1;92m[vhost enumeration]\e[0m";
     echo "Processing...";
-    docker run --user root --rm -v "$(pwd):/temp" ghcr.io/oj/gobuster:latest vhost  --random-agent --threads #threads# --no-error --no-progress --no-color --quiet --no-tls-validation --url "$targurl" --wordlist "/temp/temp.${filename}.FIN.wordlist.txt" | tee -a "${resultdir}"/"${filename}.vhosts.txt";
+    #TIMEOUT#docker run --user root --rm -v "$(pwd):/temp" ghcr.io/oj/gobuster:latest vhost --exclude-status 200-299,300-399,500-599 --random-agent --threads #threads# --no-error --no-progress --no-color --quiet --no-tls-validation --url "$targurl" --wordlist "/temp/temp.${filename}.FIN.wordlist.txt" | tee -a "${resultdir}"/"${filename}.vhosts.txt";
   echo;
   fi
-  rm -f ./temp.*
+  rm -f ./temp.${filename}.*
