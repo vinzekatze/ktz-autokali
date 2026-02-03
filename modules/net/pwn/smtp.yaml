@@ -1,33 +1,43 @@
 description: |-
-  ( СТАРЬЕ! )
   Стандартные тесты SMTP
 author: hacktricks
 tags:
   - 25
   - 465
   - 587
-  - smpt
+  - smtp
 install:
   sudo apt install ismtp
 arguments:
-  targs:
+  targets:
     default:
     replacer: __TARGS__
     description: >-
-      Цели для тестирования (пример: '127.0.0.1:25 127.0.0.2:465')
+      Цели для тестирования (пример: 127.0.0.1:25)
+    multiple: true
   to:
-    default: twerkbird@rambler.ru
+    default: random@zudpck.com
     replacer: __MAILTO__
     description: e-mail получателя при проверке на Open Relay (используется в item 4)
+    metavar: EMAIL
   from:
     default: notexist@notexist.ru
     replacer: __MAILFROM__
     description: e-mail отправителя при проверке на Open Relay (используется в item 4)
+    metavar: EMAIL
   e:
-    default: " "
+    default:
+      -
     replacer: __USERLIST__
     description: Путь до списка email-ов для перечисления (используется в item 5)
+    metavar: FILE
 shell: bash
+
+mode:
+  format:
+    targets: '{!r}'
+    e: '{!r}'
+
 
 item_1:
   description: Тесты nmap

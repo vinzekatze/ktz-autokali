@@ -19,7 +19,8 @@ arguments:
 mode:
   loop: u
   format:
-    m: 'docker run --rm smuggler -m {!r} -u #URL#;'
+    m: >-
+      docker run -v $(pwd):'/usr/src/app/payloads' --rm smuggler -m {!r} -u #URL#;
     u: '{!r}'
 
 shell: bash

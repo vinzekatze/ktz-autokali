@@ -52,5 +52,5 @@ script: >-
   set USERPASS_FILE ./sshwordlist.tmp.txt;
   set VERBOSE true;
   run;
-  rm ./ftpwordlist.tmp.txt;
+  rm -f ./sshwordlist.tmp.txt;
   exit;

@@ -42,8 +42,7 @@ arguments:
     multiple: true
     description: Читать IP из файлов
   o:
-    default:
-      -
+    default: whois.txt
     metavar: PATH
     description: Записать в файл
 

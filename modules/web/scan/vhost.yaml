@@ -9,10 +9,11 @@ tags:
 
 arguments:
   url:
-    description: файл со списком целей ("http(s)://ip:port")
+    description: список целей (файлы и строки формата "http(s)://ip:port")
     replacer: '#target#'
-    metavar: FILE
+    metavar: URL
     regex: 'http(s?):\/\/.+'
+    multiple: true
   domain:
     default:
       -
@@ -28,8 +29,7 @@ arguments:
     replacer: '#subs#'
     multiple: true
   timeout:
-    default:
-      -
+    default: 1h
     description: >-
       таймаут для остановки gobuster (например: 10s, 30m, 1h)
     metavar: TIME

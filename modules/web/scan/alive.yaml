@@ -24,10 +24,19 @@ arguments:
     metavar: PORTS
   t: 
     description: количество потоков
-    default: 25
+    default: 10
     regex: '\d+'
     replacer: '#threads#'
     metavar: THREADS
+  timeout:
+    default: 1800
+    description: >-
+      таймаут для остановки dirsearch
+    metavar: SECONDS
+    replacer: '#TIMEOUT#'
+    regex: >-
+      [1-9][0-9]*
+  
   
 mode:
   format:
@@ -68,5 +77,5 @@ item_2:
     wafw00f --timeout=10 $targ | grep --color=never -e '\[.\]'
     echo
     echo -e "\e[1;91m[$targ]\e[0m \e[1;92m[directory fuzzing]\e[0m"
-    dirsearch -t #threads# --no-color --quiet-mode --timeout=10 --retries=3 --full-url --include-status 200-299 --wordlists=#quickhits# -u $targ
+    docker run --rm -v "#quickhits#:/wrd/quickhints.txt" dirsearch --wordlists='/wrd/quickhints.txt' -t #threads# --no-color --quiet-mode --timeout=10 --retries=3 --full-url --include-status 200-299 --async --url $targ --max-time #TIMEOUT# 2>/dev/null
     echo
