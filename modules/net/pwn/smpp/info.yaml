@@ -1,0 +1,421 @@
+description: Сбор информации о SMPP-сервисе
+author: vinzekatze, claude.ai
+tags:
+  - smpp
+  - 2775
+  - 2776
+
+arguments:
+  target:
+    multiple: true
+    description: цели в формате "host:port"
+    replacer: '#target#'
+    metavar: 'HOST:PORT'
+    regex: >-
+      ^([a-zA-Z0-9.-]+|\d{1,3}(\.\d{1,3}){3}):([1-9][0-9]{0,3}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5])$
+  
+  t:
+    default: 5
+    description: таймаут
+    replacer: '#timeout#'
+    metavar: SEC
+    regex: >-
+      [1-9]\d*
+
+mode:
+  loop: target
+  format:
+    target: '{!r}'
+
+shell: python3
+script: |-
+  import sys
+  import socket
+  import ssl
+  import struct
+  import time
+  import warnings
+  warnings.filterwarnings("ignore", category=DeprecationWarning)
+
+  # НАСТРОЙКИ
+  TARGET = #target#
+  TARGET_HOST, TARGET_PORT = TARGET.split(":")
+  TIMEOUT = #timeout#
+
+  # --- Цвета ---
+  class C:
+      RESET   = "\033[0m"
+      BOLD    = "\033[1m"
+      RED     = "\033[1;91m"   # заголовок хост:порт
+      GREEN   = "\033[1;92m"   # заголовок секции
+      OK      = "\033[0;92m"   # [OK]
+      FAIL    = "\033[0;91m"   # [FAIL]
+      WARN    = "\033[0;93m"   # [WARN] / [INFO]
+      DIM     = "\033[0;37m"   # второстепенные детали
+
+
+
+  def header(host, port, section):
+      return (f"{C.RED}[{host}:{port}]{C.RESET} "
+              f"{C.GREEN}[{section}]{C.RESET}")
+
+  def ok(msg):   return f"    {C.OK}[OK]{C.RESET}   {msg}"
+  def fail(msg): return f"    {C.FAIL}[FAIL]{C.RESET} {msg}"
+  def warn(msg): return f"    {C.WARN}[INFO]{C.RESET} {msg}"
+  def dim(msg):  return f"    {C.DIM}{msg}{C.RESET}"
+
+
+  # --- PDU helpers ---
+  def build_enquire_link(sequence=1):
+      command_id     = 0x00000015
+      command_status = 0x00000000
+      length         = 16
+      return struct.pack(">IIII", length, command_id, command_status, sequence)
+
+  def parse_pdu_header(data):
+      if len(data) < 16:
+          return None
+      length, command_id, status, sequence = struct.unpack(">IIII", data[:16])
+      return {
+          "length":     length,
+          "command_id": hex(command_id),
+          "status":     hex(status),
+          "sequence":   sequence,
+      }
+
+  def fmt_ms(seconds):
+      return f"{seconds * 1000:.1f}ms"
+
+  # SMPP status codes
+  SMPP_STATUS = {
+      0x00000000: "ESME_ROK — success",
+      0x00000001: "ESME_RINVMSGLEN — invalid message length",
+      0x00000002: "ESME_RINVCMDLEN — invalid command length",
+      0x00000003: "ESME_RINVCMDID — invalid command id",
+      0x00000004: "ESME_RINVBNDSTS — incorrect bind status",
+      0x00000005: "ESME_RALYBND — already bound",
+      0x00000006: "ESME_RINVPRTFLG — invalid priority flag",
+      0x00000007: "ESME_RINVREGDLVFLG — invalid registered delivery flag",
+      0x00000008: "ESME_RSYSERR — system error",
+      0x0000000A: "ESME_RINVSRCADR — invalid source address",
+      0x0000000B: "ESME_RINVDSTADR — invalid destination address",
+      0x0000000C: "ESME_RINVMSGID — invalid message id",
+      0x0000000D: "ESME_RBINDFAIL — bind failed (wrong credentials)",
+      0x0000000E: "ESME_RINVPASWD — invalid password",
+      0x0000000F: "ESME_RINVSYSID — invalid system id",
+      0x00000011: "ESME_RCANCELFAIL — cancel failed",
+      0x00000013: "ESME_RREPLACEFAIL — replace failed",
+      0x00000014: "ESME_RMSGQFUL — message queue full",
+      0x00000015: "ESME_RINVSERTYP — invalid service type",
+      0x00000033: "ESME_RINVNUMDESTS — invalid number of destinations",
+      0x00000034: "ESME_RINVDLNAME — invalid distribution list name",
+      0x00000040: "ESME_RINVDESTFLAG — invalid destination flag",
+      0x00000042: "ESME_RINVSUBREP — invalid submit with replace request",
+      0x00000043: "ESME_RINVESMCLASS — invalid esm class",
+      0x00000044: "ESME_RCNTSUBDL — cannot submit to distribution list",
+      0x00000045: "ESME_RSUBMITFAIL — submit failed",
+      0x00000048: "ESME_RINVSRCTON — invalid source address TON",
+      0x00000049: "ESME_RINVSRCNPI — invalid source address NPI",
+      0x00000050: "ESME_RINVDSTTON — invalid destination TON",
+      0x00000051: "ESME_RINVDSTNPI — invalid destination NPI",
+      0x00000053: "ESME_RINVSYSTYP — invalid system type",
+      0x00000054: "ESME_RINVREPFLAG — invalid replace if present flag",
+      0x00000055: "ESME_RINVNUMMSGS — invalid number of messages",
+      0x00000058: "ESME_RTHROTTLED — throttling error (ESME exceeded rate)",
+      0x00000061: "ESME_RINVSCHED — invalid scheduled delivery time",
+      0x00000062: "ESME_RINVEXPIRY — invalid message expiry time",
+      0x00000063: "ESME_RINVDFTMSGID — invalid predefined message id",
+      0x00000064: "ESME_RX_T_APPN — receiver temporary error",
+      0x00000065: "ESME_RX_P_APPN — receiver permanent error",
+      0x00000066: "ESME_RX_R_APPN — receiver reject error",
+      0x00000067: "ESME_RQUERYFAIL — query failed",
+      0x000000C0: "ESME_RINVOPTPARSTREAM — invalid optional parameter stream",
+      0x000000C1: "ESME_ROPTPARNOTALLWD — optional parameter not allowed",
+      0x000000C2: "ESME_RINVPARLEN — invalid parameter length",
+      0x000000C3: "ESME_RMISSINGOPTPARAM — missing optional parameter",
+      0x000000C4: "ESME_RINVOPTPARAMVAL — invalid optional parameter value",
+      0x000000FE: "ESME_RDELIVERYFAILURE — delivery failure (data_sm)",
+      0x000000FF: "ESME_RUNKNOWNERR — unknown error",
+  }
+
+  # SMPP command ids
+  SMPP_COMMANDS = {
+      0x00000001: "bind_receiver",
+      0x00000002: "bind_transmitter",
+      0x00000003: "query_sm",
+      0x00000004: "submit_sm",
+      0x00000005: "deliver_sm",
+      0x00000006: "unbind",
+      0x00000007: "replace_sm",
+      0x00000008: "cancel_sm",
+      0x00000009: "bind_transceiver",
+      0x00000015: "enquire_link",
+      0x00000021: "submit_multi",
+      0x80000000: "generic_nack",
+      0x80000001: "bind_receiver_resp",
+      0x80000002: "bind_transmitter_resp",
+      0x80000003: "query_sm_resp",
+      0x80000004: "submit_sm_resp",
+      0x80000005: "deliver_sm_resp",
+      0x80000006: "unbind_resp",
+      0x80000007: "replace_sm_resp",
+      0x80000008: "cancel_sm_resp",
+      0x80000009: "bind_transceiver_resp",
+      0x80000015: "enquire_link_resp",
+      0x80000021: "submit_multi_resp",
+  }
+
+  def my_print(text=""):
+      print(text)
+      sys.stdout.flush()
+
+  def decode_status(status_hex: str) -> str:
+      code = int(status_hex, 16)
+      return SMPP_STATUS.get(code, "unknown status code")
+
+  def decode_command(cmd_hex: str) -> str:
+      code = int(cmd_hex, 16)
+      return SMPP_COMMANDS.get(code, "unknown command")
+
+  def safe_banner(raw: bytes) -> str:
+      parts = []
+      for b in raw:
+          if 0x20 <= b <= 0x7E:
+              parts.append(chr(b))
+          else:
+              parts.append(f"\\x{b:02x}")
+      return "".join(parts)
+
+  # ШАГ 1: TCP
+  def step_tcp(host, port):
+      my_print(f"\n{header(host, port, 'TCP port status')}")
+
+      t0 = time.time()
+      try:
+          sock = socket.create_connection((host, port), timeout=TIMEOUT)
+          elapsed = time.time() - t0
+          my_print(ok(f"OPEN, Response time: {fmt_ms(elapsed)}"))
+          return sock
+      except ConnectionRefusedError:
+          my_print(fail(f"CLOSED — connection refused"))
+      except socket.timeout:
+          my_print(fail(f"FILTERED — no response within {TIMEOUT}s (firewall or host unreachable)"))
+      except socket.gaierror as e:
+          my_print(fail(f"DNS resolution failed: {e}"))
+      return None
+
+  # ШАГ 2: БАННЕР
+  def step_banner(sock):
+      my_print(f"\n{header(TARGET_HOST, TARGET_PORT, 'Banner grab')}")
+
+      try:
+          sock.settimeout(2)
+          raw = sock.recv(1024)
+          if raw:
+              my_print(ok(f"{len(raw)} bytes received"))
+              my_print(dim(f"HEX   : {raw.hex()}"))
+              my_print(dim(f"ASCII : {safe_banner(raw)}"))
+          else:
+              my_print(warn("Empty response — server is waiting for client to speak first"))
+      except socket.timeout:
+          my_print(warn("N/A — server sent no banner (expected behavior for SMPP)"))
+
+  # ШАГ 3: SMPP ENQUIRE_LINK
+  def step_smpp_ping(sock, host, port, label="plaintext"):
+      my_print(f"\n{header(host, port, f'SMPP enquire_link: {label}')}")
+
+      try:
+          sock.setblocking(True)
+          sock.settimeout(TIMEOUT)
+
+          t0 = time.time()
+          sock.sendall(build_enquire_link(sequence=1))
+          response = sock.recv(1024)
+          elapsed = time.time() - t0
+
+          if response:
+              pdu = parse_pdu_header(response)
+              if pdu:
+                  my_print(ok(f"Response received  ({fmt_ms(elapsed)})"))
+                  my_print(dim(f"command_id : {pdu['command_id']}  → {decode_command(pdu['command_id'])}"))
+                  my_print(dim(f"status     : {pdu['status']}  → {decode_status(pdu['status'])}"))
+                  my_print(dim(f"sequence   : {pdu['sequence']}"))
+                  my_print(dim(f"raw hex    : {response.hex()}"))
+              else:
+                  my_print(warn(f"Response too short to parse: {response.hex()}"))
+          else:
+              my_print(fail("Empty response"))
+
+      except socket.timeout:
+          my_print(warn("N/A — no response to enquire_link (credentials required before ping)"))
+      except Exception as e:
+          my_print(fail(f"{e}"))
+
+  # ШАГ 4: ПЕРЕБОР TLS/SSL ВЕРСИЙ
+  TLS_VERSIONS = [
+      ("SSLv2",   None),
+      ("SSLv3",   None),
+      ("TLSv1.0", ssl.TLSVersion.TLSv1   if hasattr(ssl.TLSVersion, "TLSv1")   else None),
+      ("TLSv1.1", ssl.TLSVersion.TLSv1_1 if hasattr(ssl.TLSVersion, "TLSv1_1") else None),
+      ("TLSv1.2", ssl.TLSVersion.TLSv1_2 if hasattr(ssl.TLSVersion, "TLSv1_2") else None),
+      ("TLSv1.3", ssl.TLSVersion.TLSv1_3 if hasattr(ssl.TLSVersion, "TLSv1_3") else None),
+  ]
+
+  def try_tls_version(host, port, version_name, version_enum):
+      if version_enum is None:
+          return False, "not supported by Python ssl module", 0
+      try:
+          sock = socket.create_connection((host, port), timeout=TIMEOUT)
+          ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+          ctx.check_hostname  = False
+          ctx.verify_mode     = ssl.CERT_NONE
+          ctx.minimum_version = version_enum
+          ctx.maximum_version = version_enum
+
+          t0 = time.time()
+          tls_sock = ctx.wrap_socket(sock, server_hostname=host)
+          elapsed = time.time() - t0
+
+          cipher = tls_sock.cipher()[0]
+          tls_sock.close()
+          return True, cipher, elapsed
+
+      except ssl.SSLError as e:
+          return False, e.reason, 0
+      except socket.timeout:
+          return False, "handshake timeout", 0
+      except ConnectionResetError:
+          return False, "connection reset by server", 0
+      except Exception as e:
+          return False, str(e), 0
+
+  def step_tls_scan(host, port):
+      my_print(f"\n{header(host, port, 'TLS enumeration')}")
+
+      supported = []
+      for version_name, version_enum in TLS_VERSIONS:
+          ok_flag, detail, elapsed = try_tls_version(host, port, version_name, version_enum)
+          if ok_flag:
+              my_print(ok(f"{version_name:<10} cipher: {detail}  ({fmt_ms(elapsed)})"))
+              supported.append(version_name)
+          else:
+              my_print(f"    {C.DIM}[-]{C.RESET}    {version_name:<10} {C.DIM}{detail}{C.RESET}")
+
+      return supported
+
+  # ШАГ 5: ДЕТАЛИ СЕРТИФИКАТА
+  def step_cert_info(host, port):
+    my_print(f"\n{header(host, port, 'TLS certificate details')}")
+
+    try:
+        sock = socket.create_connection((host, port), timeout=TIMEOUT)
+        ctx = ssl.create_default_context()
+        ctx.check_hostname = False
+        ctx.verify_mode    = ssl.CERT_NONE
+
+        tls_sock = ctx.wrap_socket(sock, server_hostname=host)
+
+        # binary_form=True — единственный способ получить данные при CERT_NONE
+        raw_cert = tls_sock.getpeercert(binary_form=True)
+
+        if not raw_cert:
+            my_print(fail("No certificate returned by server"))
+            return False
+
+        # Декодируем через встроенный x509 в ssl модуле
+        # Используем openssl через subprocess для парсинга — надёжнее всего
+        import subprocess, tempfile, os
+
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".der") as f:
+            f.write(raw_cert)
+            der_path = f.name
+
+        result = subprocess.run(
+            ["openssl", "x509", "-inform", "DER", "-in", der_path,
+             "-noout", "-subject", "-issuer", "-dates", "-ext", "subjectAltName"],
+            capture_output=True, text=True
+        )
+        os.unlink(der_path)
+
+        if result.returncode == 0:
+            my_print(ok("Certificate retrieved"))
+            for line in result.stdout.strip().splitlines():
+                my_print(dim(line.strip()))
+        else:
+            my_print(fail(f"openssl parse error: {result.stderr.strip()}"))
+
+        my_print(dim(f"TLS version : {tls_sock.version()}"))
+        my_print(dim(f"Cipher      : {tls_sock.cipher()[0]}"))
+        tls_sock.close()
+        return True
+
+    except Exception as e:
+        my_print(fail(f"Could not retrieve certificate: {e}"))
+        return False
+
+  # ШАГ 6 + 7: TLS СОЕДИНЕНИЕ + SMPP ПИНГ ЧЕРЕЗ TLS
+  def step_tls_smpp_ping(host, port):
+      my_print(f"\n{header(host, port, 'TLS handshake')}")
+
+      try:
+          sock = socket.create_connection((host, port), timeout=TIMEOUT)
+          ctx  = ssl.create_default_context()
+          ctx.check_hostname = False
+          ctx.verify_mode    = ssl.CERT_NONE
+
+          t0       = time.time()
+          tls_sock = ctx.wrap_socket(sock, server_hostname=host)
+          elapsed  = time.time() - t0
+          my_print(ok(f"TLS connection established  ({fmt_ms(elapsed)})"))
+          my_print(dim(f"Version : {tls_sock.version()}"))
+          my_print(dim(f"Cipher  : {tls_sock.cipher()[0]}"))
+
+          step_smpp_ping(tls_sock, host, port, label="TLS")
+
+      except ssl.SSLError as e:
+          my_print(fail(f"TLS error: {e}"))
+      except socket.timeout:
+          my_print(fail("Timeout during TLS handshake"))
+      except Exception as e:
+          my_print(fail(f"{e}"))
+
+  # MAIN
+  if __name__ == "__main__":
+      my_print(f"{C.DIM}{'─'*55}{C.RESET}")
+      my_print(f"{C.BOLD}SMPP INFO  —  {TARGET_HOST}:{TARGET_PORT}{C.RESET}")
+      my_print(f"{C.DIM}{'─'*55}{C.RESET}")
+
+      # 1. TCP
+      sock = step_tcp(TARGET_HOST, TARGET_PORT)
+      if not sock:
+          exit(1)
+
+      # 2. Баннер
+      step_banner(sock)
+      try:
+          sock.close()
+      except Exception:
+          pass
+
+      # 3. SMPP пинг plaintext
+      sock2 = socket.create_connection((TARGET_HOST, TARGET_PORT), timeout=TIMEOUT)
+      step_smpp_ping(sock2, TARGET_HOST, TARGET_PORT, label="plaintext")
+      try:
+          sock2.close()
+      except Exception:
+          pass
+
+      # 4. Перебор TLS версий
+      supported_tls = step_tls_scan(TARGET_HOST, TARGET_PORT)
+
+      # 5. Детали сертификата
+      if supported_tls:
+          step_cert_info(TARGET_HOST, TARGET_PORT)
+          # 6+7. TLS соединение + SMPP пинг через TLS
+          step_tls_smpp_ping(TARGET_HOST, TARGET_PORT)
+      else:
+          my_print(f"\n{header(TARGET_HOST, TARGET_PORT, 'TLS certificate details')}")
+          my_print(warn("Skipped — no TLS versions detected on this port"))
+          my_print(f"\n{header(TARGET_HOST, TARGET_PORT, 'TLS handshake')}")
+          my_print(warn("Skipped — no TLS versions detected on this port"))
+      my_print()
