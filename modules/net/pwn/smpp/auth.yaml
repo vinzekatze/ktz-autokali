@@ -29,6 +29,11 @@ arguments:
     description: пароль (строки и/или файлы)
     metavar: PASSWORD
     replacer: '#PASSWORD#'
+  pass-is-login:
+    default:
+      - "False"
+      - "True"
+    description: использовать логин в качестве пароля
   tls:
     description: использовать TLS-подключение
     default:
@@ -97,6 +102,7 @@ script: |-
   TARGET_HOST, TARGET_PORT = TARGET.split(":")
   LOGINS      = [""] if not [#SYSTEM_ID#] else [#SYSTEM_ID#]
   PASSWORDS   = [""] if not [#PASSWORD#] else [#PASSWORD#]
+  PASS_IS_LOGIN = #pass-is-login#
   SYSTEM_TYPE = "#SYS_TYPE#"
   MODE        = "#MODE#"
   USE_TLS     = #TLS#
@@ -373,7 +379,7 @@ script: |-
           host=TARGET_HOST,
           port=TARGET_PORT,
           system_id=cred[0],
-          password=cred[1],
+          password=cred[1] if not PASS_IS_LOGIN else cred[0],
           mode=MODE,
           system_type=SYSTEM_TYPE,
       )
@@ -417,7 +423,7 @@ script: |-
 
       my_print(f"\n{header(TARGET_HOST, TARGET_PORT, f'SMPP bind: {MODE}')}")
       ALL_LOGINS = collect_unique_strings(LOGINS)
-      ALL_PASSWORDS = collect_unique_strings(PASSWORDS)
+      ALL_PASSWORDS = collect_unique_strings(PASSWORDS) if not PASS_IS_LOGIN else [""]
       total_comb = len(ALL_LOGINS) * len(ALL_PASSWORDS)
       if total_comb > WARN_THRESHOLD:
           my_print(warn(f"Warning: {total_comb:,} combinations generated"))
