@@ -69,6 +69,11 @@ arguments:
     description: количество потоков для перечисления
     metavar: NUM
     regex: '[1-9]\d*'
+  progress:
+    default: 5000
+    description: количество исполненных запросов, при которых будет отображаться прогресс
+    metavar: NUM
+    regex: '[1-9]\d*'
 
 mode:
   loop: t
@@ -108,10 +113,10 @@ script: |-
   USE_TLS     = #TLS#
   TIMEOUT     = #timeout#
   THREADS     = #threads#
-  WARN_THRESHOLD = 10000
+  WARN_THRESHOLD = 100000
   ENUM_MOD = #show-all#
   ENUM_MARKER = {}
-  REPORT_EVERY = 1000
+  REPORT_EVERY = #progress#
 
   def my_print(text=""):
     print(text)
@@ -229,7 +234,7 @@ script: |-
               "status": status, "sequence": sequence}
 
   def recv_pdu(sock):
-      """Читаем ровно один PDU по его длине из заголовка"""
+      # Читаем ровно один PDU по его длине из заголовка
       raw_len = b""
       while len(raw_len) < 4:
           chunk = sock.recv(4 - len(raw_len))
@@ -438,7 +443,7 @@ script: |-
 
       if total_comb > 1 and ENUM_MOD:
           ENUM_MARKER = auth_logic([RAND_LOGIN, RAND_PASSWORD])
-          my_print(warn(f"Enumerating..."))
+          my_print(warn(f"Enumeration using {THREADS} threads..."))
           with ThreadPoolExecutor(max_workers=THREADS) as executor:
               futures = [executor.submit(auth_logic, item) for item in product(ALL_LOGINS, ALL_PASSWORDS)]
               for i, future in enumerate(as_completed(futures), 1):
