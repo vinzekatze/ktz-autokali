@@ -53,8 +53,6 @@ script: |-
       WARN    = "\033[0;93m"   # [WARN] / [INFO]
       DIM     = "\033[0;37m"   # второстепенные детали
 
-
-
   def header(host, port, section):
       return (f"{C.RED}[{host}:{port}]{C.RESET} "
               f"{C.GREEN}[{section}]{C.RESET}")
@@ -63,7 +61,6 @@ script: |-
   def fail(msg): return f"    {C.FAIL}[FAIL]{C.RESET} {msg}"
   def warn(msg): return f"    {C.WARN}[INFO]{C.RESET} {msg}"
   def dim(msg):  return f"    {C.DIM}{msg}{C.RESET}"
-
 
   # --- PDU helpers ---
   def build_enquire_link(sequence=1):
@@ -388,6 +385,7 @@ script: |-
       # 1. TCP
       sock = step_tcp(TARGET_HOST, TARGET_PORT)
       if not sock:
+          my_print()
           exit(1)
 
       # 2. Баннер

