@@ -65,7 +65,7 @@ arguments:
     metavar: SEC
     regex: '[1-9]\d*'
   threads:
-    default: 10
+    default: 5
     description: количество потоков для перечисления
     metavar: NUM
     regex: '[1-9]\d*'
@@ -99,7 +99,7 @@ script: |-
   import random
   import string
   from concurrent.futures import ThreadPoolExecutor, as_completed
-  from itertools import product
+  from itertools import product, islice
   stop_event = threading.Event()
   warnings.filterwarnings("ignore", category=DeprecationWarning)
 
@@ -392,6 +392,13 @@ script: |-
       print_result(auth_result, ENUM_MARKER)
       return auth_result
 
+  def chunked(iterable, size):
+      it = iter(iterable)
+      while chunk := list(islice(it, size)):
+          yield chunk
+
+  completed = 0
+  CHUNK_SIZE = 1000
 
   def signal_handler(sig, frame):
       my_print()
@@ -445,11 +452,14 @@ script: |-
           ENUM_MARKER = auth_logic([RAND_LOGIN, RAND_PASSWORD])
           my_print(warn(f"Enumeration using {THREADS} threads..."))
           with ThreadPoolExecutor(max_workers=THREADS) as executor:
-              futures = [executor.submit(auth_logic, item) for item in product(ALL_LOGINS, ALL_PASSWORDS)]
-              for i, future in enumerate(as_completed(futures), 1):
-                  result = future.result()
-                  if i % REPORT_EVERY == 0 or i == total_comb:
-                      my_print(warn(f"Progress: {i}/{total_comb} ({i/total_comb*100:.1f}%)"))
+              for chunk in chunked(product(ALL_LOGINS, ALL_PASSWORDS), CHUNK_SIZE):
+                  futures = [executor.submit(auth_logic, item) for item in chunk]
+                  for future in as_completed(futures):
+                      result = future.result()
+                      completed += 1
+                      if completed % REPORT_EVERY == 0 or completed == total_comb:
+                          my_print(warn(f"Progress: {completed}/{total_comb} ({completed/total_comb*100:.1f}%)"))
       else:
           with ThreadPoolExecutor(max_workers=THREADS) as executor:
-              results = list(executor.map(auth_logic, product(ALL_LOGINS, ALL_PASSWORDS)))
+              for _ in executor.map(auth_logic, product(ALL_LOGINS, ALL_PASSWORDS)):
+                  pass
