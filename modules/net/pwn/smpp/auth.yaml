@@ -65,7 +65,7 @@ arguments:
     metavar: SEC
     regex: '[1-9]\d*'
   threads:
-    default: 5
+    default: 10
     description: количество потоков для перечисления
     metavar: NUM
     regex: '[1-9]\d*'

@@ -36,7 +36,22 @@ arguments:
     replacer: '#TIMEOUT#'
     regex: >-
       [1-9][0-9]*
-  
+  whatweb:
+    default:
+      -
+      - |-
+        echo -e "\e[1;91m[$targ]\e[0m \e[1;92m[whatweb info]\e[0m"
+        whatweb -t $threads $targ
+        echo
+    description: включить сканирование с помощью whatweb
+  wafw00f:
+    default:
+      -
+      - |-
+        echo -e "\e[1;91m[$targ]\e[0m \e[1;92m[wafw00f info]\e[0m"
+        wafw00f --timeout=10 $targ | grep --color=never -e '\[.\]'
+        echo
+    description: включить сканирование с помощью wafw00f
   
 mode:
   format:
@@ -55,7 +70,6 @@ item_1:
   script: |-
     echo -n > temp.targs.txt
     for targ in #target#; do cat $targ 2>/dev/null || echo $targ; done | sort -u > temp.targs.txt
-
     echo -e "\e[1;92m[web services discovery]\e[0m"
     docker run -v $(pwd):'/temp' --rm projectdiscovery/httpx -l /temp/temp.targs.txt -fr -td -sc -silent -t #threads# -ports #ports# -o /temp/temp.webs.txt  
     cat ./temp.webs.txt | cut -d" " -f1 > #web-ls#
@@ -70,12 +84,9 @@ item_2:
     loop: alive-webs
   script: |-
     targ=#web-ls#
-    echo -e "\e[1;91m[$targ]\e[0m \e[1;92m[whatweb info]\e[0m"
-    whatweb -t #threads# $targ
-    echo                                                         
-    echo -e "\e[1;91m[$targ]\e[0m \e[1;92m[wafw00f info]\e[0m"
-    wafw00f --timeout=10 $targ | grep --color=never -e '\[.\]'
-    echo
+    threads=#threads#
+    #whatweb#                                                      
+    #wafw00f#
     echo -e "\e[1;91m[$targ]\e[0m \e[1;92m[directory fuzzing]\e[0m"
-    docker run --rm -v "#quickhits#:/wrd/quickhints.txt" dirsearch --wordlists='/wrd/quickhints.txt' -t #threads# --no-color --quiet-mode --timeout=10 --retries=3 --full-url --include-status 200-299 --async --url $targ --max-time #TIMEOUT# 2>/dev/null
+    docker run --rm -v "#quickhits#:/wrd/quickhints.txt" dirsearch --wordlists='/wrd/quickhints.txt' -t $threads --no-color --quiet-mode --timeout=10 --retries=3 --full-url --include-status 200-299 --async --url $targ --max-time #TIMEOUT# 2>/dev/null
     echo
