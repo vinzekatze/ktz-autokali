@@ -1,0 +1,257 @@
+description: |-
+  Сбор и анализ JavaScript-файлов сайта на предмет уязвимостей:
+    - краулинг и скачивание всех .js файлов (katana + curl)
+    - автоматическая деобфускация/форматирование (js-beautify)
+    - поиск endpoints и URL-путей (jsluice)
+    - поиск секретов и учётных данных (trufflehog)
+    - проверка уязвимых библиотек (retire.js)
+    - поиск опасных паттернов кода (semgrep p/javascript)
+    - кастомные regex-проверки (hardcoded creds, internal IPs, JWT, localStorage, XSS sinks...)
+
+  Запускать в подготовленной директории. Результаты сохраняются в папку <hostname>.http(s)/
+
+author: vinzekatze, claude
+tags:
+  - javascript
+  - js
+  - recon
+  - secrets
+  - web
+
+arguments:
+  url:
+    description: "URL цели с протоколом и без слеша в конце (пример: https://example.com)"
+    replacer: '#url#'
+    regex: ^http[s]?:\/\/.*[^\/]$
+  t:
+    default: 10
+    metavar: INT
+    description: количество потоков для краулера
+    replacer: '#threads#'
+    regex: '[1-9]\d*'
+  d:
+    default: 3
+    metavar: INT
+    description: глубина краулинга
+    replacer: '#depth#'
+    regex: '[1-9]\d*'
+  u:
+    default: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:108.0) Gecko/20100101 Firefox/108.0'
+    description: User-Agent
+    replacer: '#useragent#'
+    metavar: STRING
+
+file_1:
+  path: scripts/js_regex_scan.py
+  replacer: '#regex_scan#'
+  description: Python-скрипт кастомных regex-проверок JS-файлов
+
+file_2:
+  path: scripts/js_report.py
+  replacer: '#js_report#'
+  description: Python-скрипт постобработки результатов и генерации Markdown-отчёта
+
+mode:
+  format:
+    url: '{0!r}'
+    u: '{0!r}'
+
+shell: bash
+script: |-
+  url=#url#
+  threads=#threads#
+  depth=#depth#
+  ua=#useragent#
+
+  # Подготовка директорий
+  dirname="$(echo $url | grep -soP '((?<=^http:\/\/)|(?<=^https:\/\/))(.)(.*?)(?=([\?&#]|$|\/$))' | sed -e 's/[^A-Za-z0-9._-]/_/g').$(echo $url | cut -d ':' -f 1)"
+
+  echo -e "\e[1;91mTarget:\e[0m $url"
+  mkdir -p "./$dirname"/{js,raw,out} && echo -e "\e[1;91mLoot:\e[0m   $(realpath ./$dirname)" || exit
+  echo
+
+  # Сбор метаданных (для контекста при ручном анализе)
+  echo -e "\e[1;92mCollecting metadata...\e[0m"
+  curl -sk -A "$ua" "$url/robots.txt" -o "./$dirname/robots.txt" 2>/dev/null && echo "  robots.txt"
+  curl -sk -A "$ua" "$url/sitemap.xml" -o "./$dirname/sitemap.xml" 2>/dev/null && echo "  sitemap.xml"
+  curl -skI -A "$ua" "$url" > "./$dirname/headers.txt" 2>/dev/null && echo "  headers.txt"
+  echo
+
+  # Краулинг (katana) — поиск всех JS-ссылок
+  echo -e "\e[1;92mCrawling for JS files (katana)...\e[0m"
+  docker run --rm projectdiscovery/katana:latest \
+    -silent \
+    -u "$url" \
+    -depth "$depth" \
+    -concurrency "$threads" \
+    -parallelism "$threads" \
+    -js-crawl \
+    -jsluice \
+    2>/dev/null | tee "./$dirname/katana_out.txt" | grep -E '\.js(\?[^"]*)?$' | sort -u > "./$dirname/js_urls.txt"
+
+  jscount=$(wc -l < "./$dirname/js_urls.txt")
+  echo "$jscount JS URLs found"
+  echo
+
+  # Скачивание JS-файлов в raw/
+  echo -e "\e[1;92mDownloading JS files...\e[0m"
+  dlcount=0
+  while IFS= read -r jsurl; do
+    fname="$(echo "$jsurl" | md5sum | cut -d' ' -f1)_$(basename "$jsurl" | sed 's/\?.*//;s/[^A-Za-z0-9._-]/_/g')"
+    [[ "$fname" != *.js ]] && fname="${fname}.js"
+    curl -sk -A "$ua" "$jsurl" -o "./$dirname/raw/$fname" 2>/dev/null && ((dlcount++))
+  done < "./$dirname/js_urls.txt"
+  echo "$dlcount files downloaded → $(realpath ./$dirname/raw/)"
+  echo
+
+  # Деобфускация/форматирование (js-beautify)
+  echo -e "\e[1;92mBeautifying JS files...\e[0m"
+  for rawfile in "./$dirname/raw/"*.js; do
+    [[ -f "$rawfile" ]] || continue
+    js-beautify -o "./$dirname/js/$(basename "$rawfile")" "$rawfile" 2>/dev/null
+  done
+  beautcount=$(ls "./$dirname/js/" 2>/dev/null | wc -l)
+  echo "$beautcount files beautified → $(realpath ./$dirname/js/)"
+  echo
+
+  echo -e "\e[1;92mReady. Run analysis items:\e[0m"
+  echo "  --item 1  jsluice     (endpoints & URL paths)"
+  echo "  --item 2  trufflehog  (secrets & credentials)"
+  echo "  --item 3  retire.js   (vulnerable libraries)"
+  echo "  --item 4  semgrep     (dangerous code patterns)"
+  echo "  --item 5  python      (custom regex checks)"
+  echo "  --item 6  report      (markdown report: endpoints, semgrep, secrets)"
+
+item_1:
+  description: "jsluice — поиск endpoints, URL-путей и параметров в JS"
+  script: |-
+    url=#url#
+    dirname="$(echo $url | grep -soP '((?<=^http:\/\/)|(?<=^https:\/\/))(.)(.*?)(?=([\?&#]|$|\/$))' | sed -e 's/[^A-Za-z0-9._-]/_/g').$(echo $url | cut -d ':' -f 1)"
+    jsdir="$(realpath "./$dirname/js")"
+    outfile="./$dirname/out/endpoints.txt"
+
+    echo -e "\e[1;92mRunning jsluice...\e[0m"
+    docker_err=$(mktemp)
+    docker run --rm \
+      -v "$jsdir":/js \
+      --entrypoint sh \
+      jsluice -c 'find /js -name "*.js" | sort | while IFS= read -r f; do jsluice urls "$f"; done' \
+      2>"$docker_err" | sort -u | tee "$outfile"
+
+    if [[ -s "$docker_err" ]]; then
+      echo -e "\e[1;91m[jsluice errors]\e[0m"
+      cat "$docker_err"
+    fi
+    rm -f "$docker_err"
+
+    echo
+    count=$(wc -l < "$outfile" 2>/dev/null || echo 0)
+    echo "$count endpoints found"
+    echo "Results: $outfile"
+
+item_2:
+  description: "trufflehog — поиск секретов, токенов, ключей API"
+  script: |-
+    url=#url#
+    dirname="$(echo $url | grep -soP '((?<=^http:\/\/)|(?<=^https:\/\/))(.)(.*?)(?=([\?&#]|$|\/$))' | sed -e 's/[^A-Za-z0-9._-]/_/g').$(echo $url | cut -d ':' -f 1)"
+    jsdir="$(realpath "./$dirname/js")"
+    outfile="./$dirname/out/secrets.json"
+
+    echo -e "\e[1;92mRunning trufflehog...\e[0m"
+    docker_err=$(mktemp)
+    docker run --rm -v "$jsdir":/scan trufflesecurity/trufflehog:latest \
+      filesystem /scan --json 2>"$docker_err" | tee "$outfile"
+
+    if grep -qiE '"level":"(error|warn)"' "$docker_err" 2>/dev/null; then
+      echo -e "\e[1;91m[trufflehog errors]\e[0m"
+      grep -iE '"level":"(error|warn)"' "$docker_err"
+    fi
+    rm -f "$docker_err"
+
+    echo
+    count=$(grep -c '"DetectorName"' "$outfile" 2>/dev/null || echo 0)
+    echo "$count secrets found"
+    echo "Results: $outfile"
+
+item_3:
+  description: "retire.js — проверка уязвимых JS-библиотек по базе CVE"
+  script: |-
+    url=#url#
+    dirname="$(echo $url | grep -soP '((?<=^http:\/\/)|(?<=^https:\/\/))(.)(.*?)(?=([\?&#]|$|\/$))' | sed -e 's/[^A-Za-z0-9._-]/_/g').$(echo $url | cut -d ':' -f 1)"
+    jsdir="./$dirname/js"
+    outfile="./$dirname/out/vulnlibs.txt"
+
+    echo -e "\e[1;92mRunning retire.js...\e[0m"
+    retire_err=$(mktemp)
+    retire --path "$jsdir" --outputformat text 2>"$retire_err" | tee "$outfile"
+
+    if [[ -s "$retire_err" ]]; then
+      echo -e "\e[1;91m[retire.js errors]\e[0m"
+      cat "$retire_err"
+    fi
+    rm -f "$retire_err"
+
+    echo
+    count=$(grep -c '' "$outfile" 2>/dev/null || echo 0)
+    [[ "$count" -eq 0 ]] && echo "No vulnerable libraries found" || echo "$count lines of findings"
+    echo "Results: $outfile"
+
+item_4:
+  description: "semgrep — поиск опасных паттернов (eval, innerHTML, prototype pollution, dangerouslySetInnerHTML...)"
+  script: |-
+    url=#url#
+    dirname="$(echo $url | grep -soP '((?<=^http:\/\/)|(?<=^https:\/\/))(.)(.*?)(?=([\?&#]|$|\/$))' | sed -e 's/[^A-Za-z0-9._-]/_/g').$(echo $url | cut -d ':' -f 1)"
+    jsdir="$(realpath "./$dirname/js")"
+    outfile="./$dirname/out/patterns.json"
+
+    echo -e "\e[1;92mRunning semgrep...\e[0m"
+    rules_tmp=$(mktemp --suffix=.yaml)
+    echo -n "  Downloading p/javascript rules... "
+    curl -sk "https://semgrep.dev/c/p/javascript" -o "$rules_tmp" 2>/dev/null
+    if [[ -s "$rules_tmp" ]]; then
+      echo "OK"
+      docker_err=$(mktemp)
+      docker run --rm \
+        -v "$jsdir":/src \
+        -v "$rules_tmp":/rules.yaml \
+        semgrep/semgrep \
+        semgrep --config /rules.yaml --json /src 2>"$docker_err" | tee "$outfile"
+
+      if grep -qiE '^(Error|Fatal|Traceback)' "$docker_err" 2>/dev/null; then
+        echo -e "\e[1;91m[semgrep errors]\e[0m"
+        cat "$docker_err"
+      fi
+      rm -f "$docker_err"
+    else
+      echo -e "\e[1;91mFailed to download semgrep rules (semgrep.dev unreachable)\e[0m"
+    fi
+    rm -f "$rules_tmp"
+
+    echo
+    count=$(python3 -c "import json; d=json.load(open('$outfile')); print(len(d.get('results',[])))" 2>/dev/null || echo "?")
+    echo "$count findings"
+    echo "Results: $outfile"
+
+item_5:
+  description: "Python regex — hardcoded creds, internal IPs, JWT, base64, localStorage, XSS sinks, source maps"
+  script: |-
+    url=#url#
+    dirname="$(echo $url | grep -soP '((?<=^http:\/\/)|(?<=^https:\/\/))(.)(.*?)(?=([\?&#]|$|\/$))' | sed -e 's/[^A-Za-z0-9._-]/_/g').$(echo $url | cut -d ':' -f 1)"
+    jsdir="./$dirname/js"
+    outfile="./$dirname/out/regex-hits.txt"
+
+    echo -e "\e[1;92mRunning custom regex scan...\e[0m"
+    python3 #regex_scan# "$jsdir" -o "$outfile"
+
+    echo
+    echo "Results: $outfile"
+
+item_6:
+  description: "Markdown report — постобработка: эндпоинты по группам, semgrep summary, секреты, приоритеты"
+  script: |-
+    url=#url#
+    dirname="$(echo $url | grep -soP '((?<=^http:\/\/)|(?<=^https:\/\/))(.)(.*?)(?=([\?&#]|$|\/$))' | sed -e 's/[^A-Za-z0-9._-]/_/g').$(echo $url | cut -d ':' -f 1)"
+
+    echo -e "\e[1;92mGenerating report...\e[0m"
+    echo
+    python3 #js_report# "./$dirname"

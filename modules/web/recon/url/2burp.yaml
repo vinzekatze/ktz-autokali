@@ -1,0 +1,99 @@
+description: Тупо переходит по списку url через проскси - полезно, чтобы отдать результаты скана дирсерчем в бурп
+author: claude.ai, vinzekatze
+tags:
+  - url to burpsuite
+
+arguments:
+  urls:
+    description: путь до файла со списком URL
+  p:
+    default: http://127.0.0.1:8080
+    description: прокси burp-а
+    metavar: PROXY
+    replacer: '#proxy#'
+  t:
+    default: 10
+    description: количество потоков
+    metavar: THREADS
+    regex: '[1-9]\d*'
+    replacer: '#threads#'
+
+mode:
+  format:
+    p: '{!r}'
+    urls: '{!r}'
+
+shell: python3
+script: |-
+  import requests
+  import urllib3
+  from concurrent.futures import ThreadPoolExecutor, as_completed
+  from queue import Queue
+  import threading
+
+  urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+  URLS_FILE       = #urls#
+  PROXY           = #proxy#
+  THREADS         = #threads#
+  TIMEOUT         = 3
+  MAX_QUEUE_SIZE  = 100
+
+  proxies = {
+      "http":  PROXY,
+      "https": PROXY,
+  }
+
+  print_lock = threading.Lock()
+
+  def fetch(url: str) -> None:
+      url = url.strip()
+      if not url or url.startswith("#"):
+          return
+      try:
+          resp = requests.get(url, proxies=proxies, timeout=TIMEOUT, allow_redirects=True, verify=False)
+          status = resp.status_code
+      except requests.exceptions.ProxyError:
+          status = "PROXY_ERR"
+      except requests.exceptions.ConnectionError:
+          status = "CONN_ERR"
+      except requests.exceptions.Timeout:
+          status = "TIMEOUT"
+      except Exception as e:
+          status = f"ERR({e.__class__.__name__})"
+
+      with print_lock:
+          print(f"[{PROXY}] [{status}] {url}")
+
+
+  def main():
+      try:
+          with open(URLS_FILE, "r", encoding="utf-8") as f:
+              urls = [line.strip() for line in f if line.strip() and not line.startswith("#")]
+      except FileNotFoundError:
+          print(f"Файл не найден: {URLS_FILE}")
+          return
+
+      total = len(urls)
+      print(f"Загружено {total} URL. Потоков: {THREADS}. Прокси: {PROXY}\n")
+
+      # max_workers ограничивает параллелизм,
+      # передача данных через итератор не даёт загрузить всё в память сразу
+      done = 0
+      try:
+          with ThreadPoolExecutor(max_workers=THREADS) as executor:
+              futures = {executor.submit(fetch, url): url for url in urls}
+              for future in as_completed(futures):
+                  future.result()
+                  done += 1
+                  if done % 100 == 0:
+                      print(f"  ... обработано {done}/{total}")
+      except KeyboardInterrupt:
+          print(f"\n[!] Прерывание. Обработано {done}/{total} URL. Ждём завершения активных потоков...")
+          executor.shutdown(wait=True, cancel_futures=True)
+
+      print(f"\nГотово. Обработано {done}/{total} URL.")
+
+
+  if __name__ == "__main__":
+      main()

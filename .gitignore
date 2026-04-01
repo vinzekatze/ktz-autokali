@@ -1,2 +1,3 @@
 .DS_Store
 files/thirdparty
+__pycache__/

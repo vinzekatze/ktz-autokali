@@ -3,3 +3,4 @@ dnspython
 html2text
 ipwhois
 tabulate
+requests

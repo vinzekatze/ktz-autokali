@@ -10,3 +10,4 @@ simplysecurity/simplyemail:latest
 ttervoort/zerologon-tester:latest
 trufflesecurity/trufflehog:latest
 rzepsky/dumpsterdiver:latest
+semgrep/semgrep:latest
