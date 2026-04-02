@@ -16,6 +16,7 @@ nmap
 nodejs
 npm
 patator
+parallel
 php
 pipx
 proxychains4

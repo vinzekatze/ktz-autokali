@@ -1,0 +1,129 @@
+description: |-
+  Проверяет открытую регистрацию клиентов в Keycloak realm (без Initial Access Token).
+  201 = открытая регистрация (уязвимость), 401 = требует токен (OK), 403 = отключено (OK).
+  При успешной регистрации автоматически удаляет тестовый клиент через registration_access_token.
+
+author: vinzekatze, claude-sonnet-4-6
+tags:
+  - keycloak
+  - client-registration
+  - misconfiguration
+  - iam
+  - sso
+
+install: |-
+  pip3 install requests
+  # или: pip3 install --break-system-packages requests
+
+arguments:
+  url:
+    description: базовый URL Keycloak (http(s)://host:port, без слеша в конце)
+    regex: '^http[s]?:\/\/.*[^\/]$'
+    replacer: '#url#'
+    multiple: true
+  realm:
+    description: имя realm
+    replacer: '#realm#'
+  prefix:
+    description: префикс пути к realm'ам
+    default:
+      - /auth/realms
+      - /realms
+    replacer: '#prefix#'
+  timeout:
+    description: таймаут запроса в секундах
+    default: 10
+    regex: '^\d+$'
+    metavar: SEC
+
+mode:
+  loop: url
+  format:
+    url: '{!r}'
+    realm: '{!r}'
+    prefix: '{!r}'
+
+shell: python3
+script: |-
+  import sys
+  import requests
+  import warnings
+  warnings.filterwarnings("ignore")
+
+  TARGET  = #url#
+  REALM   = #realm#
+  PREFIX  = #prefix#
+  TIMEOUT = #timeout#
+
+  REG_URL = f"{TARGET}{PREFIX}/{REALM}/clients-registrations/openid-connect"
+
+  def my_print(text=""):
+      print(text)
+      sys.stdout.flush()
+
+  class C:
+      RESET = "\033[0m"
+      BOLD  = "\033[1m"
+      RED   = "\033[1;91m"
+      OK    = "\033[0;92m"
+      WARN  = "\033[0;93m"
+      DIM   = "\033[0;37m"
+
+  def ok(msg):   return f"    {C.OK}[OK]{C.RESET}     {msg}"
+  def info(msg): return f"    {C.WARN}[INFO]{C.RESET}   {msg}"
+  def vuln(msg): return f"    {C.RED}[VULN]{C.RESET}   {msg}"
+  def dim(msg):  return f"    {C.DIM}{msg}{C.RESET}"
+
+  my_print(f"\n{C.DIM}{'─'*62}{C.RESET}")
+  my_print(f"{C.BOLD}[keycloak/client-reg]  {TARGET}{PREFIX}/{REALM}{C.RESET}")
+  my_print(f"{C.DIM}{'─'*62}{C.RESET}\n")
+
+  payload = {
+      "redirect_uris": ["https://pentest-check.example.com"],
+      "client_name": "pentest-open-reg-check"
+  }
+
+  my_print(dim(f"POST {REG_URL}"))
+  try:
+      r = requests.post(REG_URL, json=payload, timeout=TIMEOUT, verify=False)
+  except Exception as e:
+      my_print(dim(f"Request failed: {e}\n"))
+      sys.exit(0)
+
+  my_print(dim(f"HTTP {r.status_code}\n"))
+
+  if r.status_code == 201:
+      my_print(vuln(f"OPEN CLIENT REGISTRATION! {REG_URL}"))
+      try:
+          d = r.json()
+          client_id  = d.get('client_id') or d.get('clientId', 'N/A')
+          secret     = d.get('client_secret')
+          reg_token  = d.get('registration_access_token')
+          my_print(info(f"client_id:     {C.RED}{client_id}{C.RESET}"))
+          if secret:
+              my_print(info(f"client_secret: {C.RED}{secret}{C.RESET}"))
+          else:
+              my_print(dim("  Public client (no client_secret)"))
+          # Cleanup
+          if reg_token and client_id != 'N/A':
+              cleanup = requests.delete(
+                  f"{REG_URL}/{client_id}",
+                  headers={"Authorization": f"Bearer {reg_token}"},
+                  timeout=TIMEOUT, verify=False
+              )
+              if cleanup.status_code == 204:
+                  my_print(dim("  Test client deleted (cleanup OK)"))
+              else:
+                  my_print(dim(f"  Cleanup failed (HTTP {cleanup.status_code}) — удалить вручную: {client_id}"))
+      except Exception as e:
+          my_print(dim(f"  Could not parse response: {e}"))
+  elif r.status_code == 401:
+      my_print(ok("Требует Initial Access Token — регистрация закрыта"))
+  elif r.status_code == 403:
+      my_print(ok("Регистрация отключена / forbidden"))
+  elif r.status_code == 404:
+      my_print(dim("Endpoint не найден (неверный prefix или realm)"))
+  else:
+      my_print(info(f"Неожиданный ответ: {r.status_code}"))
+      my_print(dim(f"  Body: {r.text[:300]}"))
+  my_print()

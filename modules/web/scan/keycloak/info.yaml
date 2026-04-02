@@ -1,0 +1,199 @@
+description: |-
+  Fingerprinting и проверка information disclosure для Keycloak без аутентификации.
+  Определяет версию (из JS и login page), проверяет служебные эндпоинты
+  (/health, /metrics, /admin/serverinfo), security headers и CORS на admin endpoint.
+
+author: vinzekatze, claude-sonnet-4-6
+tags:
+  - keycloak
+  - fingerprint
+  - info
+  - iam
+  - sso
+
+install: |-
+  pip3 install requests
+  # или: pip3 install --break-system-packages requests
+
+arguments:
+  url:
+    description: базовый URL Keycloak (http(s)://host:port, без слеша в конце)
+    regex: '^http[s]?:\/\/.*[^\/]$'
+    replacer: '#url#'
+    multiple: true
+  timeout:
+    description: таймаут запроса в секундах
+    default: 10
+    regex: '^\d+$'
+    metavar: SEC
+
+mode:
+  loop: url
+  format:
+    url: '{!r}'
+
+shell: python3
+script: |-
+  import sys
+  import re
+  import requests
+  import warnings
+  warnings.filterwarnings("ignore")
+
+  TARGET  = #url#
+  TIMEOUT = #timeout#
+
+  def my_print(text=""):
+      print(text)
+      sys.stdout.flush()
+
+  class C:
+      RESET = "\033[0m"
+      BOLD  = "\033[1m"
+      RED   = "\033[1;91m"
+      OK    = "\033[0;92m"
+      WARN  = "\033[0;93m"
+      DIM   = "\033[0;37m"
+
+  def ok(msg):   return f"    {C.OK}[OK]{C.RESET}     {msg}"
+  def info(msg): return f"    {C.WARN}[INFO]{C.RESET}   {msg}"
+  def vuln(msg): return f"    {C.RED}[VULN]{C.RESET}   {msg}"
+  def dim(msg):  return f"    {C.DIM}{msg}{C.RESET}"
+
+  def req(url, method='GET', **kwargs):
+      try:
+          fn = getattr(requests, method.lower())
+          return fn(url, timeout=TIMEOUT, verify=False, allow_redirects=False, **kwargs)
+      except Exception:
+          return None
+
+  # ── 1. Prefix detection ───────────────────────────────────────────────────────
+  def detect_prefix():
+      for prefix in ['/auth', '']:
+          r = req(f"{TARGET}{prefix}/realms/master")
+          if r and r.status_code == 200:
+              try:
+                  if 'realm' in r.json():
+                      return prefix
+              except Exception:
+                  pass
+      return '/auth'
+
+  # ── 2. Version detection ──────────────────────────────────────────────────────
+  VERSION_PATTERNS = [
+      r'"version"\s*:\s*"(\d+\.\d+[\.\d]*)"',
+      r'[Kk]eycloak[^\d]{0,20}(\d+\.\d+[\.\d]*)',
+      r'<!--\s*[Kk]eycloak[^\d]*(\d+[\.\d]+)',
+  ]
+
+  def detect_version(prefix):
+      # JS files
+      for js_path in [f"{prefix}/js/keycloak.js", f"{prefix}/js/keycloak.min.js"]:
+          r = req(f"{TARGET}{js_path}")
+          if r and r.status_code == 200 and len(r.text or '') > 200:
+              for pat in VERSION_PATTERNS:
+                  m = re.search(pat, r.text)
+                  if m:
+                      return m.group(1), f"JS: {js_path}"
+      # Login page
+      r = req(f"{TARGET}{prefix}/realms/master/protocol/openid-connect/auth",
+              params={'client_id': 'account', 'response_type': 'code'})
+      if r:
+          for pat in VERSION_PATTERNS:
+              m = re.search(pat, r.text or '')
+              if m:
+                  return m.group(1), "login page HTML"
+      return None, None
+
+  # ── Main ──────────────────────────────────────────────────────────────────────
+  my_print(f"\n{C.DIM}{'─'*62}{C.RESET}")
+  my_print(f"{C.BOLD}[keycloak/info]  {TARGET}{C.RESET}")
+  my_print(f"{C.DIM}{'─'*62}{C.RESET}\n")
+
+  # 1. Prefix
+  my_print(f"{C.BOLD}[1] Prefix detection{C.RESET}")
+  prefix = detect_prefix()
+  my_print(info(f"Active prefix: {C.BOLD}{prefix if prefix else '/'}{C.RESET}"))
+  my_print()
+
+  # 2. Version + disclosure headers
+  my_print(f"{C.BOLD}[2] Version & disclosure headers{C.RESET}")
+  version, vsource = detect_version(prefix)
+  if version:
+      my_print(info(f"Version: {C.RED}{C.BOLD}{version}{C.RESET} (source: {vsource})"))
+  else:
+      my_print(dim("Version not detected via JS / login page"))
+
+  r_base = req(TARGET)
+  if r_base:
+      for h in ['Server', 'X-Powered-By', 'Via', 'X-Application-Context']:
+          val = r_base.headers.get(h)
+          if val:
+              my_print(info(f"Header {C.RED}{h}{C.RESET}: {val}"))
+  my_print()
+
+  # 3. Service endpoints
+  my_print(f"{C.BOLD}[3] Service endpoints{C.RESET}")
+  svc_endpoints = [
+      ('/health',                           'Health endpoint',           True),
+      ('/health/ready',                     'Health/ready',              True),
+      ('/health/live',                      'Health/live',               True),
+      ('/metrics',                          'Prometheus metrics',        True),
+      (f'{prefix}/admin/serverinfo',        'Admin serverinfo (no auth)', True),
+      (f'{prefix}/admin/master/console/',   'Admin console UI',          False),
+  ]
+  for path, label, expose_warn in svc_endpoints:
+      r = req(f"{TARGET}{path}")
+      if r is None:
+          my_print(dim(f"{label}: no response"))
+          continue
+      if r.status_code == 200:
+          flag = vuln if expose_warn else info
+          my_print(flag(f"{label} → {C.RED}200 EXPOSED{C.RESET}  {TARGET}{path}"))
+      elif r.status_code in [301, 302]:
+          loc = r.headers.get('Location', '')
+          my_print(info(f"{label} → {r.status_code} → {loc}"))
+      elif r.status_code in [401, 403]:
+          my_print(ok(f"{label} → {r.status_code}"))
+      else:
+          my_print(ok(f"{label} → {r.status_code}"))
+  my_print()
+
+  # 4. Security headers
+  my_print(f"{C.BOLD}[4] Security headers{C.RESET}")
+  r_sec = req(f"{TARGET}{prefix}/realms/master/account/") or r_base
+  if r_sec:
+      HEADERS = [
+          ('Content-Security-Policy',   True),
+          ('X-Frame-Options',           True),
+          ('X-Content-Type-Options',    True),
+          ('Strict-Transport-Security', TARGET.startswith('https')),
+          ('Referrer-Policy',           False),
+          ('Permissions-Policy',        False),
+      ]
+      for header, important in HEADERS:
+          val = r_sec.headers.get(header)
+          if val:
+              my_print(ok(f"{header}: {val}"))
+          elif important:
+              my_print(info(f"Missing: {C.RED}{header}{C.RESET}"))
+          else:
+              my_print(dim(f"Missing (optional): {header}"))
+  my_print()
+
+  # 5. CORS on admin endpoint
+  my_print(f"{C.BOLD}[5] CORS (admin endpoint){C.RESET}")
+  r_cors = req(f"{TARGET}{prefix}/admin/serverinfo",
+               headers={'Origin': 'https://evil.example.com'})
+  if r_cors:
+      acao = r_cors.headers.get('Access-Control-Allow-Origin', '')
+      acac = r_cors.headers.get('Access-Control-Allow-Credentials', '')
+      if acao == '*':
+          my_print(vuln(f"CORS: Access-Control-Allow-Origin: * (wildcard)"))
+      elif 'evil.example.com' in acao:
+          my_print(vuln(f"CORS reflects Origin! ACAO: {acao}  Credentials: {acac}"))
+      elif acao:
+          my_print(ok(f"Access-Control-Allow-Origin: {acao}"))
+      else:
+          my_print(ok("No CORS headers on admin endpoint"))
+  my_print()

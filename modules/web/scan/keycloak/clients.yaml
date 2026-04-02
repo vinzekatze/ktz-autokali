@@ -1,0 +1,105 @@
+description: |-
+  Перебор client ID в Keycloak realm по эндпоинту авторизации.
+  Различает "client not found" vs "client exists but invalid redirect_uri"
+  по содержимому ответа сервера.
+
+author: vinzekatze, claude-sonnet-4-6
+tags:
+  - keycloak
+  - client
+  - enumeration
+  - iam
+  - sso
+
+arguments:
+  url:
+    description: базовый URL Keycloak (http(s)://host:port, без слеша в конце)
+    regex: '^http[s]?:\/\/.*[^\/]$'
+    replacer: '#url#'
+    multiple: true
+  realm:
+    description: имя realm
+    replacer: '#realm#'
+  prefix:
+    description: префикс пути к realm'ам
+    default:
+      - /auth/realms
+      - /realms
+    replacer: '#prefix#'
+  t:
+    description: количество параллельных запросов
+    default: 10
+    regex: '^\d+$'
+    metavar: INT
+    replacer: '#threads#'
+  w:
+    description: использовать дополнительный пользовательский словарь
+    default:
+      -
+    metavar: FILE
+    replacer: '#custom_wrdlst#'
+
+file_1:
+  path: wordlists/web/keycloak/keycloak-clients.txt
+  description: встроенный словарь client ID
+  replacer: '#wordlist#'
+  quote:
+    - '"'
+    - '\'
+
+mode:
+  loop: url
+  format:
+    url: '{!r}'
+    realm: '{!r}'
+    prefix: '{!r}'
+    w: >-
+      {!r} | sort | uniq
+
+shell: bash
+script: |-
+  KC_URL=#url#
+  KC_REALM=#realm#
+  KC_PREFIX=#prefix#
+  threads=#threads#
+
+  REALM_URL="${KC_URL}${KC_PREFIX}/${KC_REALM}"
+  AUTH_EP="${REALM_URL}/protocol/openid-connect/auth"
+
+  # Проверить наличие realm
+  status=$(curl -sk -o /dev/null -w "%{http_code}" --max-time 5 "$REALM_URL")
+  if [ "$status" != "200" ]; then
+    echo -e "\e[0;91m[!]\e[0m Realm '${KC_REALM}' not found at ${REALM_URL} (HTTP ${status})"
+    exit 0
+  fi
+
+  echo -e "\e[1;92m[keycloak client enum]\e[0m realm: \e[1;91m${KC_REALM}\e[0m"
+  echo -e "    endpoint: \e[0;37m${AUTH_EP}\e[0m"
+  echo
+
+  check_client() {
+    local client=$1
+    local resp code body
+    resp=$(curl -sk -w $'\n%{http_code}' --max-time 5 \
+      "${AUTH_EP}?client_id=${client}&response_type=code&redirect_uri=http://localhost" 2>/dev/null)
+    code="${resp##*$'\n'}"
+    body="${resp%$'\n'*}"
+
+    # Паттерны "client не найден" — не выводить
+    if echo "$body" | grep -qiE 'client.not.found|invalid.*(client_id|client id)|client.*not.*exist|clientId.*not.*found'; then
+      return
+    fi
+
+    if [ "$code" = "200" ] || [ "$code" = "302" ]; then
+      echo -e "\e[1;92m[+]\e[0m \e[1;91m${client}\e[0m → HTTP ${code}"
+    elif [ "$code" = "400" ]; then
+      # 400 без "client not found" → клиент существует, invalid redirect_uri
+      echo -e "\e[1;92m[+]\e[0m \e[1;91m${client}\e[0m → HTTP 400 (client exists, bad redirect_uri)"
+    fi
+  }
+  export -f check_client
+  export KC_URL KC_REALM KC_PREFIX AUTH_EP
+
+  cat #wordlist# #custom_wrdlst# | parallel -j $threads check_client {}
+
+  echo
