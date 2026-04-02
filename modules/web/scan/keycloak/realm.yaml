@@ -1,0 +1,284 @@
+description: |-
+  Проверки Keycloak уровня realm без аутентификации. Запускать с --item N.
+  item_1: сбор информации — публичный ключ, OIDC well-known, UMA2, JWKS, SAML descriptor.
+  item_2: открытая регистрация клиентов (201=VULN, 401=OK); при успехе авто-удаляет тестовый клиент.
+
+author: vinzekatze, claude-sonnet-4-6
+tags:
+  - keycloak
+  - realm
+  - info
+  - oidc
+  - saml
+  - client-registration
+  - misconfiguration
+  - iam
+  - sso
+
+install: |-
+  pip3 install requests
+  # или: pip3 install --break-system-packages requests
+
+arguments:
+  url:
+    description: базовый URL Keycloak (http(s)://host:port, без слеша в конце)
+    regex: '^http[s]?:\/\/.*[^\/]$'
+    replacer: '#url#'
+    multiple: true
+  realm:
+    description: имя realm
+    replacer: '#realm#'
+  prefix:
+    description: префикс пути к realm'ам
+    default:
+      - /auth/realms
+      - /realms
+    replacer: '#prefix#'
+  timeout:
+    description: таймаут запроса в секундах
+    default: 10
+    regex: '^\d+$'
+    metavar: SEC
+
+mode:
+  loop: url
+  format:
+    url: '{!r}'
+    realm: '{!r}'
+    prefix: '{!r}'
+
+shell: python3
+
+item_1:
+  description: "realm info — публичный ключ, OIDC well-known, UMA2, JWKS, SAML descriptor"
+  script: |-
+    import sys
+    import re
+    import requests
+    import warnings
+    warnings.filterwarnings("ignore")
+
+    TARGET  = #url#
+    REALM   = #realm#
+    PREFIX  = #prefix#
+    TIMEOUT = #timeout#
+
+    BASE = f"{TARGET}{PREFIX}/{REALM}"
+
+    def my_print(text=""):
+        print(text)
+        sys.stdout.flush()
+
+    class C:
+        RESET = "\033[0m"
+        BOLD  = "\033[1m"
+        RED   = "\033[1;91m"
+        OK    = "\033[0;92m"
+        WARN  = "\033[0;93m"
+        DIM   = "\033[0;37m"
+
+    def ok(msg):   return f"    {C.OK}[OK]{C.RESET}     {msg}"
+    def info(msg): return f"    {C.WARN}[INFO]{C.RESET}   {msg}"
+    def vuln(msg): return f"    {C.RED}[VULN]{C.RESET}   {msg}"
+    def dim(msg):  return f"    {C.DIM}{msg}{C.RESET}"
+
+    def req(url, **kwargs):
+        try:
+            return requests.get(url, timeout=TIMEOUT, verify=False,
+                                allow_redirects=True, **kwargs)
+        except Exception:
+            return None
+
+    def summarize(d, keys):
+        for key in keys:
+            val = d.get(key)
+            if val is None:
+                continue
+            if isinstance(val, list):
+                short = ', '.join(str(v) for v in val[:8])
+                suffix = '...' if len(val) > 8 else ''
+                my_print(dim(f"  {key}: [{short}{suffix}]"))
+            else:
+                my_print(dim(f"  {key}: {val}"))
+
+    my_print(f"\n{C.DIM}{'─'*62}{C.RESET}")
+    my_print(f"{C.BOLD}[keycloak/realm info]  {BASE}{C.RESET}")
+    my_print(f"{C.DIM}{'─'*62}{C.RESET}\n")
+
+    r = req(BASE)
+    if not r or r.status_code != 200:
+        code = r.status_code if r else 'no response'
+        my_print(dim(f"Realm '{REALM}' not found at {BASE} (HTTP {code})\n"))
+        sys.exit(0)
+
+    # 1. Realm JSON
+    my_print(f"{C.BOLD}[1] Realm JSON{C.RESET}")
+    try:
+        d = r.json()
+        my_print(info(f"Realm: {d.get('realm', REALM)}"))
+        pub_key = d.get('public_key', '')
+        if pub_key:
+            my_print(info(f"Public key exposed (first 64 chars):"))
+            my_print(dim(f"  {pub_key[:64]}..."))
+            my_print(dim(f"  token-service:   {d.get('token-service', '')}"))
+            my_print(dim(f"  account-service: {d.get('account-service', '')}"))
+    except Exception as e:
+        my_print(dim(f"Could not parse JSON: {e}"))
+    my_print()
+
+    # 2. OIDC well-known
+    my_print(f"{C.BOLD}[2] OIDC well-known configuration{C.RESET}")
+    r2 = req(f"{BASE}/.well-known/openid-configuration")
+    if r2 and r2.status_code == 200:
+        my_print(info(f"Exposed: {BASE}/.well-known/openid-configuration"))
+        try:
+            d2 = r2.json()
+            summarize(d2, [
+                'issuer',
+                'grant_types_supported',
+                'response_types_supported',
+                'id_token_signing_alg_values_supported',
+                'token_endpoint_auth_methods_supported',
+            ])
+            if d2.get('registration_endpoint'):
+                my_print(info(f"  {C.RED}registration_endpoint present{C.RESET} — проверить item_2"))
+            algs = d2.get('id_token_signing_alg_values_supported', [])
+            if 'none' in [a.lower() for a in algs]:
+                my_print(vuln(f"  alg 'none' в id_token_signing_alg_values_supported!"))
+        except Exception:
+            pass
+    else:
+        my_print(ok(f"OIDC well-known → {r2.status_code if r2 else 'no response'}"))
+    my_print()
+
+    # 3. UMA2 well-known
+    my_print(f"{C.BOLD}[3] UMA2 well-known configuration{C.RESET}")
+    r3 = req(f"{BASE}/.well-known/uma2-configuration")
+    if r3 and r3.status_code == 200:
+        my_print(info(f"Exposed: {BASE}/.well-known/uma2-configuration"))
+        try:
+            d3 = r3.json()
+            summarize(d3, ['issuer', 'resource_registration_endpoint', 'permission_endpoint'])
+        except Exception:
+            pass
+    else:
+        my_print(ok(f"UMA2 well-known → {r3.status_code if r3 else 'no response'}"))
+    my_print()
+
+    # 4. JWKS
+    my_print(f"{C.BOLD}[4] JWKS (public keys){C.RESET}")
+    r4 = req(f"{BASE}/protocol/openid-connect/certs")
+    if r4 and r4.status_code == 200:
+        my_print(info(f"Exposed: {BASE}/protocol/openid-connect/certs"))
+        try:
+            keys = r4.json().get('keys', [])
+            for k in keys:
+                alg = k.get('alg', k.get('kty', '?'))
+                kid = k.get('kid', '?')
+                use = k.get('use', '?')
+                my_print(dim(f"  kid={kid}  alg={alg}  use={use}"))
+        except Exception:
+            pass
+    else:
+        my_print(ok(f"JWKS → {r4.status_code if r4 else 'no response'}"))
+    my_print()
+
+    # 5. SAML descriptor
+    my_print(f"{C.BOLD}[5] SAML metadata{C.RESET}")
+    r5 = req(f"{BASE}/protocol/saml/descriptor")
+    if r5 and r5.status_code == 200:
+        my_print(info(f"Exposed: {BASE}/protocol/saml/descriptor"))
+        m = re.search(r'entityID="([^"]+)"', r5.text)
+        if m:
+            my_print(dim(f"  entityID: {m.group(1)}"))
+        certs = re.findall(r'<[^>]*X509Certificate[^>]*>([A-Za-z0-9+/=]{20})', r5.text)
+        if certs:
+            my_print(dim(f"  Signing cert (first 20 chars): {certs[0]}..."))
+    else:
+        my_print(ok(f"SAML descriptor → {r5.status_code if r5 else 'no response'} (SAML может не быть настроен)"))
+    my_print()
+
+item_2:
+  description: "client registration — проверка открытой регистрации клиентов"
+  script: |-
+    import sys
+    import requests
+    import warnings
+    warnings.filterwarnings("ignore")
+
+    TARGET  = #url#
+    REALM   = #realm#
+    PREFIX  = #prefix#
+    TIMEOUT = #timeout#
+
+    REG_URL = f"{TARGET}{PREFIX}/{REALM}/clients-registrations/openid-connect"
+
+    def my_print(text=""):
+        print(text)
+        sys.stdout.flush()
+
+    class C:
+        RESET = "\033[0m"
+        BOLD  = "\033[1m"
+        RED   = "\033[1;91m"
+        OK    = "\033[0;92m"
+        WARN  = "\033[0;93m"
+        DIM   = "\033[0;37m"
+
+    def ok(msg):   return f"    {C.OK}[OK]{C.RESET}     {msg}"
+    def info(msg): return f"    {C.WARN}[INFO]{C.RESET}   {msg}"
+    def vuln(msg): return f"    {C.RED}[VULN]{C.RESET}   {msg}"
+    def dim(msg):  return f"    {C.DIM}{msg}{C.RESET}"
+
+    my_print(f"\n{C.DIM}{'─'*62}{C.RESET}")
+    my_print(f"{C.BOLD}[keycloak/client-reg]  {REG_URL}{C.RESET}")
+    my_print(f"{C.DIM}{'─'*62}{C.RESET}\n")
+
+    payload = {
+        "redirect_uris": ["https://pentest-check.example.com"],
+        "client_name": "pentest-open-reg-check"
+    }
+
+    my_print(dim(f"POST {REG_URL}"))
+    try:
+        r = requests.post(REG_URL, json=payload, timeout=TIMEOUT, verify=False)
+    except Exception as e:
+        my_print(dim(f"Request failed: {e}\n"))
+        sys.exit(0)
+
+    my_print(dim(f"HTTP {r.status_code}\n"))
+
+    if r.status_code == 201:
+        my_print(vuln(f"OPEN CLIENT REGISTRATION! {REG_URL}"))
+        try:
+            d = r.json()
+            client_id  = d.get('client_id') or d.get('clientId', 'N/A')
+            secret     = d.get('client_secret')
+            reg_token  = d.get('registration_access_token')
+            my_print(info(f"client_id:     {C.RED}{client_id}{C.RESET}"))
+            if secret:
+                my_print(info(f"client_secret: {C.RED}{secret}{C.RESET}"))
+            else:
+                my_print(dim("  Public client (no client_secret)"))
+            if reg_token and client_id != 'N/A':
+                cleanup = requests.delete(
+                    f"{REG_URL}/{client_id}",
+                    headers={"Authorization": f"Bearer {reg_token}"},
+                    timeout=TIMEOUT, verify=False
+                )
+                if cleanup.status_code == 204:
+                    my_print(dim("  Test client deleted (cleanup OK)"))
+                else:
+                    my_print(dim(f"  Cleanup failed (HTTP {cleanup.status_code}) — удалить вручную: {client_id}"))
+        except Exception as e:
+            my_print(dim(f"  Could not parse response: {e}"))
+    elif r.status_code == 401:
+        my_print(ok("Требует Initial Access Token — регистрация закрыта"))
+    elif r.status_code == 403:
+        my_print(ok("Регистрация отключена / forbidden"))
+    elif r.status_code == 404:
+        my_print(dim("Endpoint не найден (неверный prefix или realm)"))
+    else:
+        my_print(info(f"Неожиданный ответ: {r.status_code}"))
+        my_print(dim(f"  Body: {r.text[:300]}"))
+    my_print()

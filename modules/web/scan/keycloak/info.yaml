@@ -1,7 +1,8 @@
 description: |-
   Fingerprinting и проверка information disclosure для Keycloak без аутентификации.
-  Определяет версию (из JS и login page), проверяет служебные эндпоинты
-  (/health, /metrics, /admin/serverinfo), security headers и CORS на admin endpoint.
+  Основной скрипт: версия, служебные эндпоинты (/health, /metrics, /admin/serverinfo),
+  security headers, CORS на admin endpoint.
+  item_1: запуск keycloak-scanner (NeuronAddict) — realm/client enum, well-known, CVE-2018-14655.
 
 author: vinzekatze, claude-sonnet-4-6
 tags:
@@ -14,6 +15,7 @@ tags:
 install: |-
   pip3 install requests
   # или: pip3 install --break-system-packages requests
+  pipx install keycloak-scanner
 
 arguments:
   url:
@@ -26,11 +28,30 @@ arguments:
     default: 10
     regex: '^\d+$'
     metavar: SEC
+  realms:
+    description: "realm'ы для keycloak-scanner (через запятую)"
+    default: master
+    metavar: REALMS
+    replacer: '#kc_realms#'
+  clients-list:
+    description: "client ID для keycloak-scanner (через запятую)"
+    default: account,admin-cli,broker,realm-management,security-admin-console
+    metavar: CLIENTS
+    replacer: '#kc_clients#'
+  proxy:
+    description: прокси для keycloak-scanner
+    default:
+      -
+    metavar: URL
+    replacer: '#kc_proxy#'
 
 mode:
   loop: url
   format:
     url: '{!r}'
+    realms: '--realms {}'
+    clients-list: '--clients {}'
+    proxy: '--proxy {!r}'
 
 shell: python3
 script: |-
@@ -197,3 +218,9 @@ script: |-
       else:
           my_print(ok("No CORS headers on admin endpoint"))
   my_print()
+
+item_1:
+  description: "keycloak-scanner (NeuronAddict) — realm/client enum, well-known, none-alg, CVE-2018-14655"
+  shell: bash
+  script: >-
+    keycloak-scanner #url# #kc_realms# #kc_clients# --ssl-noverify #kc_proxy#

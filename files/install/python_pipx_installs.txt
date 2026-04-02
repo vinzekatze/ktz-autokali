@@ -6,5 +6,6 @@ gsan
 impacket
 lsassy
 ssh-audit
+keycloak-scanner
 wafw00f
 whispers
