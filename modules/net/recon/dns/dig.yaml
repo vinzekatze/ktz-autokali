@@ -50,14 +50,13 @@ arguments:
   d:
     metavar: DOMAIN
     multiple: true
-    description: целевые домены
+    description: целевые домены или файл с их списком
     regex: '[\w\.\_\-\:\/\,]+' 
   n:
     metavar: SERVER
     default:
       -
-    multiple: true
-    description: NS сервера для опроса
+    description: NS сервер для опроса
     regex: '[\w\.\_\-\:\/\,]+'
   v:
     default:
@@ -76,7 +75,9 @@ arguments:
       - '#file_2#'
     description: использовать большой словарь для перечисления SRV записей
 mode:
-  loop: n
+  readfile:
+    - d
+  loop: d
   replace:
     q:
       a: 'dig #n# #tcp# +noall +answer +multiline a #d# #v#;'
@@ -109,13 +110,3 @@ file_2:
 
 script: >-
   #q#
-
-item_1:
-  description: >-
-    читать доменные имена из файла
-  mode:
-    readfile:
-      - d
-    loop: d
-  script: >-
-    #q#

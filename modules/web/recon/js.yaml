@@ -10,7 +10,7 @@ description: |-
 
   Запускать в подготовленной директории. Результаты сохраняются в папку <hostname>.http(s)/
 
-author: vinzekatze, claude
+author: vinzekatze, claude-sonnet-4-6
 tags:
   - javascript
   - js
